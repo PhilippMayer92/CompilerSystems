@@ -884,13 +884,21 @@ void implementMap();
 
 void selfie_map(int ID, int page, int frame);
 
+// TH: Create a mapping from context ID to context address 
+void emitMapIdToAddress();
+void doMapIdToAddress(int ID, int ctx_addr);
+void implementMapIdToAddress();
+
+void selfie_map_id_to_address(int ID, int ctx_addr);
+
 // ------------------------ GLOBAL CONSTANTS -----------------------
 
-int debug_create = 0;
-int debug_switch = 0;
-int debug_status = 0;
-int debug_delete = 0;
-int debug_map    = 0;
+int debug_create  = 0;
+int debug_switch  = 0;
+int debug_status  = 0;
+int debug_delete  = 0;
+int debug_map     = 0;
+int debug_mapping = 1;  // TH:
 
 int SYSCALL_ID     = 4901;
 int SYSCALL_CREATE = 4902;
@@ -898,6 +906,8 @@ int SYSCALL_SWITCH = 4903;
 int SYSCALL_STATUS = 4904;
 int SYSCALL_DELETE = 4905;
 int SYSCALL_MAP    = 4906;
+int SYSCALL_MAP_ID_TO_CTX = 4907; // TH:
+
 
 // *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~
 // -----------------------------------------------------------------
@@ -1118,6 +1128,33 @@ void resetInterpreter() {
     storesPerAddress = zalloc(maxBinaryLength);
   }
 }
+
+// TH: create global and define struct for mapping
+// -----------------------------------------------------------------
+// ----------------------- ID -> CTX MAPPING -----------------------
+// -----------------------------------------------------------------
+
+int* id_ctx_mapping = (int*) 0; // maps id -> context address
+
+// mapping struct:
+// +---+--------+
+// | 0 | next   | pointer to next mapping
+// | 1 | id     | unique identifier
+// | 2 | addr   | address to context of process with id
+// +---+--------+
+
+
+int* getNextMapping(int* mapping) { return (int*) *mapping; }
+int  getIDMapping(int* mapping)   { return        *(mapping + 1); }
+int  getAddrMapping(int* mapping) { return        *(mapping + 2); }
+
+void setNextMapping(int* mapping, int* next) { *mapping       = (int) next; }
+void setIDMapping(int* mapping, int id)      { *(mapping + 1) = id; }
+void setAddrMapping(int* mapping, int addr) { *(mapping + 2) = addr; }
+
+int* allocateMapping(int ID, int ctx_addr);
+void createMapping(int ID, int ctx_addr, int* in);
+int* findMapping(int ID, int* in);
 
 // -----------------------------------------------------------------
 // ---------------------------- CONTEXTS ---------------------------
@@ -5374,6 +5411,52 @@ void selfie_map(int ID, int page, int frame) {
     hypster_map(ID, page, frame);
 }
 
+// TH: selfie call for inserting an ID to address mapping to the emulator
+
+void emitMapIdToAddress() {
+  createSymbolTableEntry(LIBRARY_TABLE, (int*) "hypster_map_id_to_address", 0, PROCEDURE, VOID_T, 0, binaryLength);
+
+  emitIFormat(OP_LW, REG_SP, REG_A1, 0); // context address
+  emitIFormat(OP_ADDIU, REG_SP, REG_SP, WORDSIZE);
+
+  emitIFormat(OP_LW, REG_SP, REG_A0, 0); // context ID
+  emitIFormat(OP_ADDIU, REG_SP, REG_SP, WORDSIZE);
+
+  emitIFormat(OP_ADDIU, REG_ZR, REG_V0, SYSCALL_MAP_ID_TO_CTX);
+  emitRFormat(OP_SPECIAL, 0, 0, 0, FCT_SYSCALL);
+
+  emitRFormat(OP_SPECIAL, REG_RA, 0, 0, FCT_JR);
+}
+
+void doMapIdToAddress(int ID, int ctx_addr) {
+  createMapping(ID, ctx_addr, id_ctx_mapping);
+
+  if (debug_mapping) {
+    print(binaryName);
+    print((int*) ": selfie_create mapping:  ");
+    printInteger(ID);
+    print((int*) " -> ");
+    printInteger(ctx_addr);
+    println();
+  }
+}
+
+void implementMapIdToAddress() {
+  doMapIdToAddress(*(registers+REG_A0), *(registers+REG_A1));
+}
+
+void hypster_map_id_to_address(int ID, int ctx_addr) {
+  // this procedure is only executed at boot level zero
+  doMapIdToAddress(ID, ctx_addr);
+}
+
+void selfie_map_id_to_address(int ID, int ctx_addr) {
+  if (mipster)
+    doMapIdToAddress(ID, ctx_addr);
+  else
+    hypster_map_id_to_address(ID, ctx_addr);
+}
+
 // *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~
 // -----------------------------------------------------------------
 // ---------------------    E M U L A T O R    ---------------------
@@ -5517,6 +5600,8 @@ void fct_syscall() {
       implementDelete();
     else if (*(registers+REG_V0) == SYSCALL_MAP)
       implementMap();
+    else if (*(registers+REG_V0) == SYSCALL_MAP_ID_TO_CTX)
+      implementMapIdToAddress();
     else {
       pc = pc - WORDSIZE;
 
@@ -6421,6 +6506,50 @@ void selfie_disassemble() {
   println();
 }
 
+// TH: create global and define struct for mapping
+// -----------------------------------------------------------------
+// ----------------------- ID -> CTX MAPPING -----------------------
+// -----------------------------------------------------------------
+
+int* allocateMapping(int ID, int ctx_addr) {
+  int* mapping;
+
+  mapping = malloc(2 * SIZEOFINTSTAR + 2 * SIZEOFINT);
+
+  setNextMapping(mapping, (int*) 0);
+
+  setIDMapping(mapping, ID);
+
+  setAddrMapping(mapping, ctx_addr);
+
+  return mapping;
+}
+
+void createMapping(int ID, int ctx_addr, int* in) {
+  int* mapping;
+
+  mapping = allocateMapping(ID, ctx_addr);
+
+  // insert new mapping at the beginning of the mapping list
+  setNextMapping(mapping, in);
+  in = mapping;
+}
+
+int* findMapping(int ID, int* in) {
+  int* mapping;
+
+  mapping = in;
+
+  while (mapping != (int*) 0) {
+    if (getIDMapping(mapping) == ID)
+      return mapping;
+
+    mapping = getNextMapping(mapping);
+  }
+
+  return (int*) 0;
+}
+
 // -----------------------------------------------------------------
 // ---------------------------- CONTEXTS ---------------------------
 // -----------------------------------------------------------------
@@ -6901,6 +7030,9 @@ int boot(int argc, int* argv) {
   if (usedContexts == (int*) 0)
     // create duplicate of the initial context on our boot level
     usedContexts = createContext(initID, selfie_ID(), (int*) 0);
+
+  // TH: create ID to context address mapping on mikrokernel boot level
+  selfie_map_id_to_address(initID, (int) usedContexts);
 
   up_loadBinary(getPT(usedContexts));
 
