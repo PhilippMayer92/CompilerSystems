@@ -1143,17 +1143,16 @@ int* id_ctx_mapping = (int*) 0; // maps id -> context address
 // | 2 | addr   | address to context of process with id
 // +---+--------+
 
-
 int* getNextMapping(int* mapping) { return (int*) *mapping; }
 int  getIDMapping(int* mapping)   { return        *(mapping + 1); }
 int  getAddrMapping(int* mapping) { return        *(mapping + 2); }
 
 void setNextMapping(int* mapping, int* next) { *mapping       = (int) next; }
 void setIDMapping(int* mapping, int id)      { *(mapping + 1) = id; }
-void setAddrMapping(int* mapping, int addr) { *(mapping + 2) = addr; }
+void setAddrMapping(int* mapping, int addr)  { *(mapping + 2) = addr; }
 
 int* allocateMapping(int ID, int ctx_addr);
-void createMapping(int ID, int ctx_addr, int* in);
+int* createMapping(int ID, int ctx_addr, int* in);
 int* findMapping(int ID, int* in);
 
 // -----------------------------------------------------------------
@@ -5428,8 +5427,9 @@ void emitMapIdToAddress() {
   emitRFormat(OP_SPECIAL, REG_RA, 0, 0, FCT_JR);
 }
 
+// list is not created. compare to doCreate()
 void doMapIdToAddress(int ID, int ctx_addr) {
-  createMapping(ID, ctx_addr, id_ctx_mapping);
+  id_ctx_mapping = createMapping(ID, ctx_addr, id_ctx_mapping);
 
   if (debug_mapping) {
     print(binaryName);
@@ -6514,7 +6514,7 @@ void selfie_disassemble() {
 int* allocateMapping(int ID, int ctx_addr) {
   int* mapping;
 
-  mapping = malloc(2 * SIZEOFINTSTAR + 2 * SIZEOFINT);
+  mapping = malloc(SIZEOFINTSTAR + 2 * SIZEOFINT);
 
   setNextMapping(mapping, (int*) 0);
 
@@ -6525,14 +6525,14 @@ int* allocateMapping(int ID, int ctx_addr) {
   return mapping;
 }
 
-void createMapping(int ID, int ctx_addr, int* in) {
+int* createMapping(int ID, int ctx_addr, int* in) {
   int* mapping;
-
   mapping = allocateMapping(ID, ctx_addr);
 
   // insert new mapping at the beginning of the mapping list
   setNextMapping(mapping, in);
-  in = mapping;
+  
+  return mapping;
 }
 
 int* findMapping(int ID, int* in) {
@@ -6598,7 +6598,6 @@ int* allocateContext(int ID, int parentID) {
 
 int* createContext(int ID, int parentID, int* in) {
   int* context;
-
   context = allocateContext(ID, parentID);
 
   setNextContext(context, in);
