@@ -884,7 +884,6 @@ void implementMap();
 
 void selfie_map(int ID, int page, int frame);
 
-// TH: Create a mapping from context ID to context address 
 void emitMapIdToAddress();
 void doMapIdToAddress(int ID, int ctx_addr);
 void implementMapIdToAddress();
@@ -898,7 +897,7 @@ int debug_switch  = 0;
 int debug_status  = 0;
 int debug_delete  = 0;
 int debug_map     = 0;
-int debug_mapping = 1;  // TH:
+int debug_mapping = 1;
 
 int SYSCALL_ID     = 4901;
 int SYSCALL_CREATE = 4902;
@@ -906,7 +905,7 @@ int SYSCALL_SWITCH = 4903;
 int SYSCALL_STATUS = 4904;
 int SYSCALL_DELETE = 4905;
 int SYSCALL_MAP    = 4906;
-int SYSCALL_MAP_ID_TO_CTX = 4907; // TH:
+int SYSCALL_MAP_ID_TO_CTX = 4907;
 
 
 // *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~ *~*~
@@ -1129,7 +1128,6 @@ void resetInterpreter() {
   }
 }
 
-// TH: create global and define struct for mapping
 // -----------------------------------------------------------------
 // ----------------------- ID -> CTX MAPPING -----------------------
 // -----------------------------------------------------------------
@@ -4054,6 +4052,8 @@ void selfie_compile() {
   emitDelete();
   emitMap();
 
+  emitMapIdToAddress();
+
   while (link) {
     if (numberOfRemainingArguments() == 0)
       link = 0;
@@ -5410,8 +5410,6 @@ void selfie_map(int ID, int page, int frame) {
     hypster_map(ID, page, frame);
 }
 
-// TH: selfie call for inserting an ID to address mapping to the emulator
-
 void emitMapIdToAddress() {
   createSymbolTableEntry(LIBRARY_TABLE, (int*) "hypster_map_id_to_address", 0, PROCEDURE, VOID_T, 0, binaryLength);
 
@@ -5427,7 +5425,6 @@ void emitMapIdToAddress() {
   emitRFormat(OP_SPECIAL, REG_RA, 0, 0, FCT_JR);
 }
 
-// list is not created. compare to doCreate()
 void doMapIdToAddress(int ID, int ctx_addr) {
   id_ctx_mapping = createMapping(ID, ctx_addr, id_ctx_mapping);
 
@@ -5451,7 +5448,7 @@ void hypster_map_id_to_address(int ID, int ctx_addr) {
 }
 
 void selfie_map_id_to_address(int ID, int ctx_addr) {
-  if (mipster)
+  if (mipster) 
     doMapIdToAddress(ID, ctx_addr);
   else
     hypster_map_id_to_address(ID, ctx_addr);
@@ -6506,7 +6503,6 @@ void selfie_disassemble() {
   println();
 }
 
-// TH: create global and define struct for mapping
 // -----------------------------------------------------------------
 // ----------------------- ID -> CTX MAPPING -----------------------
 // -----------------------------------------------------------------
@@ -6529,7 +6525,7 @@ int* createMapping(int ID, int ctx_addr, int* in) {
   int* mapping;
   mapping = allocateMapping(ID, ctx_addr);
 
-  // insert new mapping at the beginning of the mapping list
+  // insert new mapping at the beginning of the mapping list in
   setNextMapping(mapping, in);
   
   return mapping;
@@ -7030,7 +7026,7 @@ int boot(int argc, int* argv) {
     // create duplicate of the initial context on our boot level
     usedContexts = createContext(initID, selfie_ID(), (int*) 0);
 
-  // TH: create ID to context address mapping on mikrokernel boot level
+  // create ID to context address mapping on mikrokernel boot level
   selfie_map_id_to_address(initID, (int) usedContexts);
 
   up_loadBinary(getPT(usedContexts));
