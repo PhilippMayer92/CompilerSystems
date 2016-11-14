@@ -1152,6 +1152,8 @@ void setAddrMapping(int* mapping, int addr)  { *(mapping + 2) = addr; }
 int* allocateMapping(int ID, int ctx_addr);
 int* createMapping(int ID, int ctx_addr, int* in);
 int* findMapping(int ID, int* in);
+int* getPhysAddrViaMapping(int ID);
+void printContext(int* ctx);
 
 // -----------------------------------------------------------------
 // ---------------------------- CONTEXTS ---------------------------
@@ -5166,10 +5168,30 @@ void emitSwitch() {
 int doSwitch(int toID) {
   int fromID;
   int* toContext;
+  int* toContextMapping;
 
   fromID = getID(currentContext);
 
   toContext = findContext(toID, usedContexts);
+
+  toContextMapping = getPhysAddrViaMapping(toID);
+
+  if(toContextMapping != (int*) 0)
+    setRegLo(toContextMapping, 34);
+
+  // print context
+  if(toID != 0) {
+    println();
+    print((int*) " ==================================== ");
+    printInteger(toID);
+    printContext(toContextMapping);
+    print((int*) " ------------------------------------ ");
+    printContext(toContext);
+    print((int*) " ==================================== ");
+    println();
+    println();
+  }
+
 
   if (toContext != (int*) 0) {
     switchContext(currentContext, toContext);
@@ -6537,13 +6559,59 @@ int* findMapping(int ID, int* in) {
   mapping = in;
 
   while (mapping != (int*) 0) {
-    if (getIDMapping(mapping) == ID)
+    if (getIDMapping(mapping) == ID) 
       return mapping;
 
     mapping = getNextMapping(mapping);
   }
 
   return (int*) 0;
+}
+
+int* getPhysAddrViaMapping(int ID) {
+  int* mapping;
+  int mappingVAddr;
+
+  // find mapping in emulator mapping-list
+  mapping = findMapping(ID, id_ctx_mapping);
+  // get vaddr for ID from mapping
+  mappingVAddr = getAddrMapping(mapping);
+
+  if (isValidVirtualAddress(mappingVAddr)) 
+    // is vaddr mapped in native hypster page table
+    if (isVirtualAddressMapped(getPT(findContext(0, usedContexts)), mappingVAddr)) 
+      // look up physical address 
+      return tlb(getPT(findContext(0, usedContexts)), mappingVAddr);
+
+  return (int*) 0;
+}
+
+void printContext(int* ctx) {
+  println();
+  print((int*) " --- ctx-addr: ");
+  printInteger((int) ctx);
+  println();
+  print((int*) " - ctx-ID: ");
+  printInteger(getID(ctx));
+  println();
+  print((int*) " - ctx-PC: ");
+  printInteger(getPC(ctx));
+  println();
+  print((int*) " - ctx-RegHi: ");
+  printInteger(getRegHi(ctx));
+  println();
+  print((int*) " - ctx-RegLo: ");
+  printInteger(getRegLo(ctx));
+  println();
+  print((int*) " - ctx-Parent: ");
+  printInteger(getParent(ctx));
+  println();
+  print((int*) " - ctx-Break: ");
+  printInteger(getBreak(ctx));
+  println();
+  print((int*) " - ctx-PT: ");
+  printInteger((int) getPT(ctx));
+  println();
 }
 
 // -----------------------------------------------------------------
@@ -7026,15 +7094,15 @@ int boot(int argc, int* argv) {
     // create duplicate of the initial context on our boot level
     usedContexts = createContext(initID, selfie_ID(), (int*) 0);
 
-  // create ID to context address mapping on mikrokernel boot level
-  selfie_map_id_to_address(initID, (int) usedContexts);
-
   up_loadBinary(getPT(usedContexts));
 
   up_loadArguments(getPT(usedContexts), argc, argv);
 
   // propagate page table of initial context to microkernel boot level
   down_mapPageTable(usedContexts);
+
+  // create ID to context address mapping on mikrokernel boot level
+  selfie_map_id_to_address(initID, (int) usedContexts);
 
   // mipsters and hypsters handle page faults
   exitCode = runOrHostUntilExitWithPageFaultHandling(initID);
