@@ -5174,24 +5174,25 @@ int doSwitch(int toID) {
 
   toContext = findContext(toID, usedContexts);
 
-  toContextMapping = getPhysAddrViaMapping(toID);
+  if(toID > 1) {
+    toContextMapping = getPhysAddrViaMapping(toID);
 
-  if(toContextMapping != (int*) 0)
-    setRegLo(toContextMapping, 34);
+    if(toContextMapping != (int*) 0)
+      setRegLo(toContextMapping, 34);
 
-  // print context
-  if(toID != 0) {
-    println();
-    print((int*) " ==================================== ");
-    printInteger(toID);
-    printContext(toContextMapping);
-    print((int*) " ------------------------------------ ");
-    printContext(toContext);
-    print((int*) " ==================================== ");
-    println();
-    println();
+    // print context
+    if(toContextMapping != (int*) 0) {
+      println();
+      print((int*) " ==================================== ");
+      printInteger(toID);
+      printContext(toContextMapping);
+      print((int*) " ------------------------------------ ");
+      printContext(toContext);
+      print((int*) " ==================================== ");
+      println();
+      println();
+    }
   }
-
 
   if (toContext != (int*) 0) {
     switchContext(currentContext, toContext);
@@ -6579,9 +6580,9 @@ int* getPhysAddrViaMapping(int ID) {
 
   if (isValidVirtualAddress(mappingVAddr)) 
     // is vaddr mapped in native hypster page table
-    if (isVirtualAddressMapped(getPT(findContext(0, usedContexts)), mappingVAddr)) 
+    if (isVirtualAddressMapped(getPT(findContext(1, usedContexts)), mappingVAddr)) 
       // look up physical address 
-      return tlb(getPT(findContext(0, usedContexts)), mappingVAddr);
+      return tlb(getPT(findContext(1, usedContexts)), mappingVAddr);
 
   return (int*) 0;
 }
@@ -7168,10 +7169,19 @@ int selfie_run(int engine, int machine, int debugger) {
     printProfile((int*) ": loops: ", loops, loopsPerAddress);
     printProfile((int*) ": loads: ", loads, loadsPerAddress);
     printProfile((int*) ": stores: ", stores, storesPerAddress);
-  } else
+  } else {
     // boot hypster
     exitCode = boot(numberOfRemainingArguments(), remainingArguments());
-
+    if(numberOfRemainingArguments() < 2) {
+      // boot hypster twice
+      exitCode = boot(numberOfRemainingArguments(), remainingArguments());
+    }
+    if(numberOfRemainingArguments() < 2) {
+      // boot hypster twice
+      exitCode = boot(numberOfRemainingArguments(), remainingArguments());
+    }
+  }
+  
   interpret = 0;
 
   return exitCode;
