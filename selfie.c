@@ -897,7 +897,7 @@ int debug_switch  = 0;
 int debug_status  = 0;
 int debug_delete  = 0;
 int debug_map     = 0;
-int debug_mapping = 1;
+int debug_mapping = 0;
 
 int SYSCALL_ID     = 4901;
 int SYSCALL_CREATE = 4902;
@@ -1153,7 +1153,9 @@ int* allocateMapping(int ID, int ctx_addr);
 int* createMapping(int ID, int ctx_addr, int* in);
 int* findMapping(int ID, int* in);
 int* getPhysAddrViaMapping(int ID);
+int* getPhysAddr(int ID, int addr);
 void printContext(int* ctx);
+void printState();
 
 // -----------------------------------------------------------------
 // ---------------------------- CONTEXTS ---------------------------
@@ -1167,6 +1169,7 @@ int* createContext(int ID, int parentID, int* in);
 int* findContext(int ID, int* in);
 
 void switchContext(int* from, int* to);
+void switchContextMapping(int* from, int* to);
 
 void freeContext(int* context);
 int* deleteContext(int* context, int* from);
@@ -1223,7 +1226,7 @@ int MIPSTER_ID = -1;
 
 int bumpID; // counter for generating unique context IDs
 
-int* currentContext = (int*) 0; // context currently running
+int* currentMapping = (int*) 0; // context currently running
 
 int* usedContexts = (int*) 0; // doubly-linked list of used contexts
 int* freeContexts = (int*) 0; // singly-linked list of free contexts
@@ -1233,7 +1236,7 @@ int* freeContexts = (int*) 0; // singly-linked list of free contexts
 void resetMicrokernel() {
   bumpID = MIPSTER_ID;
 
-  currentContext = (int*) 0;
+  currentMapping = (int*) 0;
 
   while (usedContexts != (int*) 0)
     usedContexts = deleteContext(usedContexts, usedContexts);
@@ -5084,7 +5087,7 @@ void emitID() {
 }
 
 void implementID() {
-  *(registers+REG_V0) = getID(currentContext);
+  *(registers+REG_V0) = getIDMapping(currentMapping);
 }
 
 int hypster_ID() {
@@ -5112,10 +5115,9 @@ int doCreate(int parentID) {
   if (bumpID < INT_MAX) {
     bumpID = createID(bumpID);
 
-    usedContexts = createContext(bumpID, parentID, usedContexts);
-
-    if (currentContext == (int*) 0)
-      currentContext = usedContexts;
+    // mipster only need the context of itself an a hypster
+    if(bumpID < 2) 
+      usedContexts = createContext(bumpID, parentID, usedContexts);
 
     if (debug_create) {
       print(binaryName);
@@ -5135,7 +5137,7 @@ int doCreate(int parentID) {
 }
 
 void implementCreate() {
-  *(registers+REG_V0) = doCreate(getID(currentContext));
+  *(registers+REG_V0) = doCreate(getIDMapping(currentMapping));
 }
 
 int hypster_create() {
@@ -5168,36 +5170,15 @@ void emitSwitch() {
 int doSwitch(int toID) {
   int fromID;
   int* toContext;
-  int* toContextMapping;
 
-  fromID = getID(currentContext);
+  fromID = getIDMapping(currentMapping);
 
-  toContext = findContext(toID, usedContexts);
-
-  if(toID > 1) {
-    toContextMapping = getPhysAddrViaMapping(toID);
-
-    if(toContextMapping != (int*) 0)
-      setRegLo(toContextMapping, 34);
-
-    // print context
-    if(toContextMapping != (int*) 0) {
-      println();
-      print((int*) " ==================================== ");
-      printInteger(toID);
-      printContext(toContextMapping);
-      print((int*) " ------------------------------------ ");
-      printContext(toContext);
-      print((int*) " ==================================== ");
-      println();
-      println();
-    }
-  }
+  toContext = getPhysAddrViaMapping(toID);
 
   if (toContext != (int*) 0) {
-    switchContext(currentContext, toContext);
+    switchContextMapping(getPhysAddrViaMapping(fromID), toContext);
 
-    currentContext = toContext;
+    currentMapping = findMapping(toID, id_ctx_mapping);
 
     if (debug_switch) {
       print(binaryName);
@@ -5245,7 +5226,7 @@ int mipster_switch(int toID) {
 
   runUntilException();
 
-  return getID(currentContext);
+  return getIDMapping(currentMapping);
 }
 
 int hypster_switch(int toID) {
@@ -5317,7 +5298,7 @@ void emitDelete() {
 void doDelete(int ID) {
   int* context;
 
-  context = findContext(ID, usedContexts);
+  context = getPhysAddrViaMapping(ID);
 
   if (context != (int*) 0) {
     usedContexts = deleteContext(context, usedContexts);
@@ -5375,15 +5356,16 @@ void doMap(int ID, int page, int frame) {
   int* mapContext;
   int* parentContext;
 
-  mapContext = findContext(ID, usedContexts);
+  mapContext = getPhysAddrViaMapping(ID);
 
   if (mapContext != (int*) 0) {
     if (getParent(mapContext) != MIPSTER_ID) {
-      parentContext = findContext(getParent(mapContext), usedContexts);
+      parentContext = getPhysAddrViaMapping(getParent(mapContext));
 
-      if (parentContext != (int*) 0)
+      if (parentContext != (int*) 0) {
         // assert: 0 <= frame < VIRTUALMEMORYSIZE
-        frame = getFrameForPage(getPT(parentContext), frame / PAGESIZE);
+        frame = getFrameForPage(getPhysAddr(getID(parentContext), (int) getPT(parentContext)), frame / PAGESIZE);
+      }
       else if (debug_map) {
         print(binaryName);
         print((int*) ": selfie_map parent context ");
@@ -5396,7 +5378,7 @@ void doMap(int ID, int page, int frame) {
     }
 
     // on boot level zero frame may be any signed integer
-    mapPage(getPT(mapContext), page, frame);
+    mapPage(getPhysAddr(getID(mapContext), (int) getPT(mapContext)), page, frame);
 
     if (debug_map) {
       print(binaryName);
@@ -5449,7 +5431,12 @@ void emitMapIdToAddress() {
 }
 
 void doMapIdToAddress(int ID, int ctx_addr) {
+  // int* mapping;
+
   id_ctx_mapping = createMapping(ID, ctx_addr, id_ctx_mapping);
+
+  if (currentMapping == (int*) 0)
+    currentMapping = id_ctx_mapping;
 
   if (debug_mapping) {
     print(binaryName);
@@ -5567,6 +5554,7 @@ int loadVirtualMemory(int* table, int vaddr) {
   // assert: isVirtualAddressMapped(table, vaddr) == 1
 
   return loadPhysicalMemory(tlb(table, vaddr));
+  
 }
 
 void storeVirtualMemory(int* table, int vaddr, int data) {
@@ -6299,7 +6287,7 @@ void throwException(int exception, int parameter) {
   if (debug_exception) {
     print(binaryName);
     print((int*) ": context ");
-    printInteger(getID(currentContext));
+    printInteger(getIDMapping(currentMapping));
     print((int*) " throws ");
     printStatus(status);
     print((int*) " exception");
@@ -6578,13 +6566,45 @@ int* getPhysAddrViaMapping(int ID) {
   // get vaddr for ID from mapping
   mappingVAddr = getAddrMapping(mapping);
 
-  if (isValidVirtualAddress(mappingVAddr)) 
-    // is vaddr mapped in native hypster page table
-    if (isVirtualAddressMapped(getPT(findContext(1, usedContexts)), mappingVAddr)) 
-      // look up physical address 
-      return tlb(getPT(findContext(1, usedContexts)), mappingVAddr);
+  if(ID > 1) {
+    // hypster address space
+    if (isValidVirtualAddress(mappingVAddr)) 
+      // is vaddr mapped in non-native hypster page table
+      if (isVirtualAddressMapped(getPhysAddr(1, (int) getPT(getPhysAddrViaMapping(1))), mappingVAddr)) 
+        // look up physical address 
+        return tlb(getPhysAddr(1, (int) getPT(getPhysAddrViaMapping(1))), mappingVAddr);
+  } else { 
+    // mipster address space
+    if (isValidVirtualAddress(mappingVAddr)) 
+      // is vaddr mapped in native mipster page table
+      if (isVirtualAddressMapped(getPT(findContext(0, usedContexts)), mappingVAddr)) 
+        // look up physical address 
+        return tlb(getPT(findContext(0, usedContexts)), mappingVAddr);
+  }
 
-  return (int*) 0;
+  // neither mapped in mipster nor hypster, we already have a physical address
+  return (int*) mappingVAddr;
+}
+
+int* getPhysAddr(int ID, int addr) {
+  if(ID > 1) {
+    // hypster address space
+    if (isValidVirtualAddress(addr)) 
+      // is vaddr mapped in non-native hypster page table
+      if (isVirtualAddressMapped(getPhysAddr(1, (int) getPT(getPhysAddrViaMapping(1))), addr)) 
+        // look up physical address 
+        return tlb(getPhysAddr(1, (int) getPT(getPhysAddrViaMapping(1))), addr);
+  } else {  
+    // mipster address space
+    if (isValidVirtualAddress(addr)) 
+      // is vaddr mapped in native mipster page table
+      if (isVirtualAddressMapped(getPT(findContext(0, usedContexts)), addr)) 
+        // look up physical address 
+        return tlb(getPT(findContext(0, usedContexts)), addr);
+  }
+
+  // neither mapped in mipster nor hypster, we already have a physical address
+  return (int*) addr;
 }
 
 void printContext(int* ctx) {
@@ -6597,6 +6617,12 @@ void printContext(int* ctx) {
   println();
   print((int*) " - ctx-PC: ");
   printInteger(getPC(ctx));
+  println();
+  print((int*) " - ctx-Regs: ");
+  printInteger((int) getRegs(ctx));
+  println();
+  print((int*) " - ctx-Regs-Native: ");
+  printInteger((int) getPhysAddr(getID(ctx), (int) getRegs(ctx)));
   println();
   print((int*) " - ctx-RegHi: ");
   printInteger(getRegHi(ctx));
@@ -6613,6 +6639,31 @@ void printContext(int* ctx) {
   print((int*) " - ctx-PT: ");
   printInteger((int) getPT(ctx));
   println();
+  print((int*) " - ctx-PT-Native: ");
+  printInteger((int) getPhysAddr(getID(ctx), (int) getPT(ctx)));
+  println();
+}
+
+void printState() {
+  println();
+  print((int*) " --- pc: ");
+  printInteger((int) pc);
+  println();
+  print((int*) " - registers: ");
+  printInteger((int) registers);
+  println();
+  print((int*) " - reg_hi: ");
+  printInteger(reg_hi);
+  println();
+  print((int*) " - reg_lo: ");
+  printInteger(reg_lo);
+  println();
+  print((int*) " - pt: ");
+  printInteger((int) pt);
+  println();
+  print((int*) " - brk: ");
+  printInteger((int) brk);
+  println();
 }
 
 // -----------------------------------------------------------------
@@ -6627,13 +6678,13 @@ int createID(int seed) {
 int* allocateContext(int ID, int parentID) {
   int* context;
 
-  if (freeContexts == (int*) 0)
+  // if (freeContexts == (int*) 0)
     context = malloc(4 * SIZEOFINTSTAR + 6 * SIZEOFINT);
-  else {
-    context = freeContexts;
+  // else {
+  //   context = freeContexts;
 
-    freeContexts = getNextContext(freeContexts);
-  }
+  //   freeContexts = getNextContext(freeContexts);
+  // }
 
   setNextContext(context, (int*) 0);
   setPrevContext(context, (int*) 0);
@@ -6701,6 +6752,24 @@ void switchContext(int* from, int* to) {
   reg_hi    = getRegHi(to);
   reg_lo    = getRegLo(to);
   pt        = getPT(to);
+  brk       = getBreak(to);
+}
+
+void switchContextMapping(int* from, int* to) {
+  // save machine state
+  setPC(from, pc);
+  setRegHi(from, reg_hi);
+  setRegLo(from, reg_lo);
+  setBreak(from, brk);
+
+  // restore machine state
+  pc        = getPC(to);
+  // get physical register address
+  registers = getPhysAddr(getID(to), (int) getRegs(to));
+  reg_hi    = getRegHi(to);
+  reg_lo    = getRegLo(to);
+  // get physical page table address
+  pt        = getPhysAddr(getID(to), (int) getPT(to));
   brk       = getBreak(to);
 }
 
@@ -6971,7 +7040,13 @@ int runOrHostUntilExitWithPageFaultHandling(int toID) {
 
     fromContext = findContext(fromID, usedContexts);
 
+    // lookup non-native context for mipster
+    if(mipster)
+      if(fromContext == (int*) 0) 
+        fromContext = getPhysAddrViaMapping(fromID);
+
     // assert: fromContext must be in usedContexts (created here)
+    //         or in case of mipster in 
 
     if (getParent(fromContext) != selfie_ID())
       // switch to parent which is in charge of handling exceptions
@@ -6982,12 +7057,13 @@ int runOrHostUntilExitWithPageFaultHandling(int toID) {
 
       exceptionNumber    = decodeExceptionNumber(savedStatus);
       exceptionParameter = decodeExceptionParameter(savedStatus);
-
+      
       if (exceptionNumber == EXCEPTION_PAGEFAULT) {
         frame = (int) palloc();
 
         // TODO: use this table to unmap and reuse frames
         mapPage(getPT(fromContext), exceptionParameter, frame);
+        // mapPage(getPhysAddr(getID(fromContext), (int) getPT(fromContext)), exceptionParameter, frame);
 
         // page table on microkernel boot level
         selfie_map(fromID, exceptionParameter, frame);
@@ -7099,11 +7175,11 @@ int boot(int argc, int* argv) {
 
   up_loadArguments(getPT(usedContexts), argc, argv);
 
-  // propagate page table of initial context to microkernel boot level
-  down_mapPageTable(usedContexts);
-
   // create ID to context address mapping on mikrokernel boot level
   selfie_map_id_to_address(initID, (int) usedContexts);
+
+  // get physical addresses in non-native page table
+  down_mapPageTable(usedContexts);
 
   // mipsters and hypsters handle page faults
   exitCode = runOrHostUntilExitWithPageFaultHandling(initID);
@@ -7172,14 +7248,15 @@ int selfie_run(int engine, int machine, int debugger) {
   } else {
     // boot hypster
     exitCode = boot(numberOfRemainingArguments(), remainingArguments());
-    if(numberOfRemainingArguments() < 2) {
-      // boot hypster twice
-      exitCode = boot(numberOfRemainingArguments(), remainingArguments());
-    }
-    if(numberOfRemainingArguments() < 2) {
-      // boot hypster twice
-      exitCode = boot(numberOfRemainingArguments(), remainingArguments());
-    }
+    // uncomment for multiple VMs next to hypster
+    // if(numberOfRemainingArguments() < 2) {
+    //   // boot hypster twice
+    //   exitCode = boot(numberOfRemainingArguments(), remainingArguments());
+    // }
+    // if(numberOfRemainingArguments() < 2) {
+    //   // boot hypster twice
+    //   exitCode = boot(numberOfRemainingArguments(), remainingArguments());
+    // }
   }
   
   interpret = 0;
