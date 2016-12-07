@@ -4017,6 +4017,8 @@ void selfie_compile() {
   int link;
   int numberOfSourceFiles;
 
+print((int*) "=== selfie_compile");
+
   // link until next console option
   link = 1;
 
@@ -5116,7 +5118,7 @@ int doCreate(int parentID) {
     bumpID = createID(bumpID);
 
     // mipster only need the context of itself an a hypster
-    if(bumpID < 2) 
+    if(bumpID < 1) 
       usedContexts = createContext(bumpID, parentID, usedContexts);
 
     if (debug_create) {
