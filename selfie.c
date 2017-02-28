@@ -923,6 +923,7 @@ void initMemory(int megabytes);
 int  loadPhysicalMemory(int* paddr);
 void storePhysicalMemory(int* paddr, int data);
 
+int* getFrameForContextData(int* ctx, int offset);
 int getFrameForPage(int* table, int page);
 int isPageMapped(int* table, int page);
 
@@ -1169,7 +1170,6 @@ int* createContext(int ID, int parentID, int* in);
 int* findContext(int ID, int* in);
 
 void switchContext(int* from, int* to);
-void switchContextMapping(int* from, int* to);
 
 void freeContext(int* context);
 int* deleteContext(int* context, int* from);
@@ -4017,8 +4017,6 @@ void selfie_compile() {
   int link;
   int numberOfSourceFiles;
 
-print((int*) "=== selfie_compile");
-
   // link until next console option
   link = 1;
 
@@ -4667,7 +4665,7 @@ void emitExit() {
 void implementExit() {
   int exitCode;
 
-  exitCode = *(registers+REG_A0);
+  exitCode = *(getFrameForContextData(registers, REG_A0));
 
   // exit code must be signed 16-bit integer
   if (exitCode > INT16_MAX)
@@ -4679,7 +4677,7 @@ void implementExit() {
 
   print(binaryName);
   print((int*) ": exiting with exit code ");
-  printInteger(*(registers+REG_A0));
+  printInteger(*(getFrameForContextData(registers, REG_A0)));
   print((int*) " and ");
   printFixedPointRatio(brk - maxBinaryLength, MEGABYTE);
   print((int*) "MB of mallocated memory");
@@ -4717,9 +4715,9 @@ void implementRead() {
 
   // assert: read buffer is mapped
 
-  size  = *(registers+REG_A2);
-  vaddr = *(registers+REG_A1);
-  fd    = *(registers+REG_A0);
+  size  = *(getFrameForContextData(registers, REG_A2));
+  vaddr = *(getFrameForContextData(registers, REG_A1));
+  fd    = *(getFrameForContextData(registers, REG_A0));
 
   if (debug_read) {
     print(binaryName);
@@ -4789,9 +4787,9 @@ void implementRead() {
   }
 
   if (failed == 0)
-    *(registers+REG_V0) = readTotal;
+    *(getFrameForContextData(registers, REG_V0)) = readTotal;
   else
-    *(registers+REG_V0) = -1;
+    *(getFrameForContextData(registers, REG_V0)) = -1;
 
   if (debug_read) {
     print(binaryName);
@@ -4833,9 +4831,9 @@ void implementWrite() {
 
   // assert: write buffer is mapped
 
-  size  = *(registers+REG_A2);
-  vaddr = *(registers+REG_A1);
-  fd    = *(registers+REG_A0);
+  size  = *(getFrameForContextData(registers, REG_A2));
+  vaddr = *(getFrameForContextData(registers, REG_A1));
+  fd    = *(getFrameForContextData(registers, REG_A0));
 
   if (debug_write) {
     print(binaryName);
@@ -4905,9 +4903,9 @@ void implementWrite() {
   }
 
   if (failed == 0)
-    *(registers+REG_V0) = writtenTotal;
+    *(getFrameForContextData(registers, REG_V0)) = writtenTotal;
   else
-    *(registers+REG_V0) = -1;
+    *(getFrameForContextData(registers, REG_V0)) = -1;
 
   if (debug_write) {
     print(binaryName);
@@ -4991,14 +4989,14 @@ void implementOpen() {
   int vaddr;
   int fd;
 
-  mode  = *(registers+REG_A2);
-  flags = *(registers+REG_A1);
-  vaddr = *(registers+REG_A0);
+  mode  = *(getFrameForContextData(registers, REG_A2));
+  flags = *(getFrameForContextData(registers, REG_A1));
+  vaddr = *(getFrameForContextData(registers, REG_A0));
 
   if (down_loadString(pt, vaddr, filename_buffer)) {
     fd = open(filename_buffer, flags, mode);
 
-    *(registers+REG_V0) = fd;
+    *(getFrameForContextData(registers, REG_V0)) = fd;
 
     if (debug_open) {
       print(binaryName);
@@ -5013,7 +5011,7 @@ void implementOpen() {
       println();
     }
   } else {
-    *(registers+REG_V0) = -1;
+    *(getFrameForContextData(registers, REG_V0)) = -1;
 
     if (debug_open) {
       print(binaryName);
@@ -5048,19 +5046,19 @@ void implementMalloc() {
   if (debug_malloc) {
     print(binaryName);
     print((int*) ": trying to malloc ");
-    printInteger(*(registers+REG_A0));
+    printInteger(*(getFrameForContextData(registers, REG_A0)));
     print((int*) " bytes");
     println();
   }
 
-  size = roundUp(*(registers+REG_A0), WORDSIZE);
+  size = roundUp(*(getFrameForContextData(registers, REG_A0)), WORDSIZE);
 
   bump = brk;
 
-  if (bump + size >= *(registers+REG_SP))
+  if (bump + size >= *(getFrameForContextData(registers, REG_SP)))
     throwException(EXCEPTION_HEAPOVERFLOW, 0);
   else {
-    *(registers+REG_V0) = bump;
+    *(getFrameForContextData(registers, REG_V0)) = bump;
 
     brk = bump + size;
 
@@ -5089,7 +5087,7 @@ void emitID() {
 }
 
 void implementID() {
-  *(registers+REG_V0) = getIDMapping(currentMapping);
+  *(getFrameForContextData(registers, REG_V0)) = getIDMapping(currentMapping);
 }
 
 int hypster_ID() {
@@ -5139,7 +5137,7 @@ int doCreate(int parentID) {
 }
 
 void implementCreate() {
-  *(registers+REG_V0) = doCreate(getIDMapping(currentMapping));
+  *(getFrameForContextData(registers, REG_V0)) = doCreate(getIDMapping(currentMapping));
 }
 
 int hypster_create() {
@@ -5178,7 +5176,7 @@ int doSwitch(int toID) {
   toContext = getPhysAddrViaMapping(toID);
 
   if (toContext != (int*) 0) {
-    switchContextMapping(getPhysAddrViaMapping(fromID), toContext);
+    switchContext(getPhysAddrViaMapping(fromID), toContext);
 
     currentMapping = findMapping(toID, id_ctx_mapping);
 
@@ -5205,26 +5203,26 @@ void implementSwitch() {
   int fromID;
 
   // CAUTION: doSwitch() modifies the global variable registers
-  // but some compilers dereference the lvalue *(registers+REG_V1)
+  // but some compilers dereference the lvalue *(getFrameForContextData(registers, REG_V1))
   // before evaluating the rvalue doSwitch()
 
-  fromID = doSwitch(*(registers+REG_A0));
+  fromID = doSwitch(*(getFrameForContextData(registers, REG_A0)));
 
   // use REG_V1 instead of REG_V0 to avoid race condition with interrupt
-  *(registers+REG_V1) = fromID;
+  *(getFrameForContextData(registers, REG_V1)) = fromID;
 }
 
 int mipster_switch(int toID) {
   int fromID;
 
   // CAUTION: doSwitch() modifies the global variable registers
-  // but some compilers dereference the lvalue *(registers+REG_V1)
+  // but some compilers dereference the lvalue *(getFrameForContextData(registers, REG_V1)
   // before evaluating the rvalue doSwitch()
 
   fromID = doSwitch(toID);
 
   // use REG_V1 instead of REG_V0 to avoid race condition with interrupt
-  *(registers+REG_V1) = fromID;
+  *(getFrameForContextData(registers, REG_V1)) = fromID;
 
   runUntilException();
 
@@ -5270,7 +5268,7 @@ int doStatus() {
 }
 
 void implementStatus() {
-  *(registers+REG_V0) = doStatus();
+  *(getFrameForContextData(registers, REG_V0)) = doStatus();
 }
 
 int hypster_status() {
@@ -5321,7 +5319,7 @@ void doDelete(int ID) {
 }
 
 void implementDelete() {
-  doDelete(*(registers+REG_A0));
+  doDelete(*(getFrameForContextData(registers, REG_A0)));
 }
 
 void hypster_delete(int ID) {
@@ -5380,7 +5378,7 @@ void doMap(int ID, int page, int frame) {
     }
 
     // on boot level zero frame may be any signed integer
-    mapPage(getPhysAddr(getID(mapContext), (int) getPT(mapContext)), page, frame);
+    mapPage(getPT(mapContext), page, frame);
 
     if (debug_map) {
       print(binaryName);
@@ -5402,7 +5400,7 @@ void doMap(int ID, int page, int frame) {
 }
 
 void implementMap() {
-  doMap(*(registers+REG_A0), *(registers+REG_A1), *(registers+REG_A2));
+  doMap(*(getFrameForContextData(registers, REG_A0)), *(getFrameForContextData(registers, REG_A1)), *(getFrameForContextData(registers, REG_A2)));
 }
 
 void hypster_map(int ID, int page, int frame) {
@@ -5451,7 +5449,7 @@ void doMapIdToAddress(int ID, int ctx_addr) {
 }
 
 void implementMapIdToAddress() {
-  doMapIdToAddress(*(registers+REG_A0), *(registers+REG_A1));
+  doMapIdToAddress(*(getFrameForContextData(registers, REG_A0)), *(getFrameForContextData(registers, REG_A1)));
 }
 
 void hypster_map_id_to_address(int ID, int ctx_addr) {
@@ -5484,8 +5482,27 @@ void storePhysicalMemory(int* paddr, int data) {
   *paddr = data;
 }
 
+int* getFrameForContextData(int* ctx, int offset) {
+  int *paddr;
+  int addr;
+
+  addr = (int) ctx + (4 * offset);
+
+  // if mipster && addr is virtual address, resolve via mipster page table
+  if(mipster) {
+    if(isValidVirtualAddress(addr)) {
+      if(isVirtualAddressMapped(getPT(findContext(0, usedContexts)), addr)) {
+        paddr = tlb(getPT(findContext(0, usedContexts)), addr);
+        return paddr;
+      }
+    }
+  }
+
+  return (int*) addr;
+}
+
 int getFrameForPage(int* table, int page) {
-  return *(table + page);
+  return *(getFrameForContextData(table, page));
 }
 
 int isPageMapped(int* table, int page) {
@@ -5556,7 +5573,6 @@ int loadVirtualMemory(int* table, int vaddr) {
   // assert: isVirtualAddressMapped(table, vaddr) == 1
 
   return loadPhysicalMemory(tlb(table, vaddr));
-  
 }
 
 void storeVirtualMemory(int* table, int vaddr, int data) {
@@ -5588,29 +5604,29 @@ void fct_syscall() {
   if (interpret) {
     pc = pc + WORDSIZE;
 
-    if (*(registers+REG_V0) == SYSCALL_EXIT)
+    if (*(getFrameForContextData(registers, REG_V0)) == SYSCALL_EXIT)
       implementExit();
-    else if (*(registers+REG_V0) == SYSCALL_READ)
+    else if (*(getFrameForContextData(registers, REG_V0)) == SYSCALL_READ)
       implementRead();
-    else if (*(registers+REG_V0) == SYSCALL_WRITE)
+    else if (*(getFrameForContextData(registers, REG_V0)) == SYSCALL_WRITE)
       implementWrite();
-    else if (*(registers+REG_V0) == SYSCALL_OPEN)
+    else if (*(getFrameForContextData(registers, REG_V0)) == SYSCALL_OPEN)
       implementOpen();
-    else if (*(registers+REG_V0) == SYSCALL_MALLOC)
+    else if (*(getFrameForContextData(registers, REG_V0)) == SYSCALL_MALLOC)
       implementMalloc();
-    else if (*(registers+REG_V0) == SYSCALL_ID)
+    else if (*(getFrameForContextData(registers, REG_V0)) == SYSCALL_ID)
       implementID();
-    else if (*(registers+REG_V0) == SYSCALL_CREATE)
+    else if (*(getFrameForContextData(registers, REG_V0)) == SYSCALL_CREATE)
       implementCreate();
-    else if (*(registers+REG_V0) == SYSCALL_SWITCH)
+    else if (*(getFrameForContextData(registers, REG_V0)) == SYSCALL_SWITCH)
       implementSwitch();
-    else if (*(registers+REG_V0) == SYSCALL_STATUS)
+    else if (*(getFrameForContextData(registers, REG_V0)) == SYSCALL_STATUS)
       implementStatus();
-    else if (*(registers+REG_V0) == SYSCALL_DELETE)
+    else if (*(getFrameForContextData(registers, REG_V0)) == SYSCALL_DELETE)
       implementDelete();
-    else if (*(registers+REG_V0) == SYSCALL_MAP)
+    else if (*(getFrameForContextData(registers, REG_V0)) == SYSCALL_MAP)
       implementMap();
-    else if (*(registers+REG_V0) == SYSCALL_MAP_ID_TO_CTX)
+    else if (*(getFrameForContextData(registers, REG_V0)) == SYSCALL_MAP_ID_TO_CTX)
       implementMapIdToAddress();
     else {
       pc = pc - WORDSIZE;
@@ -5642,13 +5658,13 @@ void op_jal() {
       print((int*) ": ");
       printRegister(REG_RA);
       print((int*) "=");
-      printHexadecimal(*(registers+REG_RA), 0);
+      printHexadecimal(*(getFrameForContextData(registers, REG_RA)), 0);
     }
   }
 
   if (interpret) {
     // skip over delay slot
-    *(registers+REG_RA) = pc + 8;
+    *(getFrameForContextData(registers, REG_RA)) = pc + 8;
 
     pc = instr_index * WORDSIZE;
 
@@ -5665,7 +5681,7 @@ void op_jal() {
       print((int*) " -> ");
       printRegister(REG_RA);
       print((int*) "=");
-      printHexadecimal(*(registers+REG_RA), 0);
+      printHexadecimal(*(getFrameForContextData(registers, REG_RA)), 0);
       print((int*) ",$pc=");
       printHexadecimal(pc, 0);
     }
@@ -5714,18 +5730,18 @@ void op_beq() {
       print((int*) ": ");
       printRegister(rs);
       print((int*) "=");
-      printInteger(*(registers+rs));
+      printInteger(*(getFrameForContextData(registers, rs)));
       print((int*) ",");
       printRegister(rt);
       print((int*) "=");
-      printInteger(*(registers+rt));
+      printInteger(*(getFrameForContextData(registers, rt)));
     }
   }
 
   if (interpret) {
     pc = pc + WORDSIZE;
 
-    if (*(registers+rs) == *(registers+rt)) {
+    if (*(getFrameForContextData(registers, rs)) == *(getFrameForContextData(registers, rt))) {
       pc = pc + signExtend(immediate) * WORDSIZE;
 
       if (signExtend(immediate) < 0) {
@@ -5764,18 +5780,18 @@ void op_bne() {
       print((int*) ": ");
       printRegister(rs);
       print((int*) "=");
-      printInteger(*(registers+rs));
+      printInteger(*(getFrameForContextData(registers, rs)));
       print((int*) ",");
       printRegister(rt);
       print((int*) "=");
-      printInteger(*(registers+rt));
+      printInteger(*(getFrameForContextData(registers, rt)));
     }
   }
 
   if (interpret) {
     pc = pc + WORDSIZE;
 
-    if (*(registers+rs) != *(registers+rt)) {
+    if (*(getFrameForContextData(registers, rs)) != *(getFrameForContextData(registers, rt))) {
       pc = pc + signExtend(immediate) * WORDSIZE;
 
       // TODO: execute delay slot
@@ -5804,16 +5820,16 @@ void op_addiu() {
       print((int*) ": ");
       printRegister(rt);
       print((int*) "=");
-      printInteger(*(registers+rt));
+      printInteger(*(getFrameForContextData(registers, rt)));
       print((int*) ",");
       printRegister(rs);
       print((int*) "=");
-      printInteger(*(registers+rs));
+      printInteger(*(getFrameForContextData(registers, rs)));
     }
   }
 
   if (interpret) {
-    *(registers+rt) = *(registers+rs) + signExtend(immediate);
+    *(getFrameForContextData(registers, rt)) = *(getFrameForContextData(registers, rs)) + signExtend(immediate);
 
     // TODO: check for overflow
 
@@ -5825,7 +5841,7 @@ void op_addiu() {
       print((int*) " -> ");
       printRegister(rt);
       print((int*) "=");
-      printInteger(*(registers+rt));
+      printInteger(*(getFrameForContextData(registers, rt)));
     }
     println();
   }
@@ -5840,12 +5856,12 @@ void fct_jr() {
       print((int*) ": ");
       printRegister(rs);
       print((int*) "=");
-      printHexadecimal(*(registers+rs), 0);
+      printHexadecimal(*(getFrameForContextData(registers, rs)), 0);
     }
   }
 
   if (interpret)
-    pc = *(registers+rs);
+    pc = *(getFrameForContextData(registers, rs));
 
   if (debug) {
     if (interpret) {
@@ -5865,14 +5881,14 @@ void fct_mfhi() {
       print((int*) ":");
       printRegister(rd);
       print((int*) "=");
-      printInteger(*(registers+rd));
+      printInteger(*(getFrameForContextData(registers, rd)));
       print((int*) ",$hi=");
       printInteger(reg_hi);
     }
   }
 
   if (interpret) {
-    *(registers+rd) = reg_hi;
+    *(getFrameForContextData(registers, rd)) = reg_hi;
 
     pc = pc + WORDSIZE;
   }
@@ -5882,7 +5898,7 @@ void fct_mfhi() {
       print((int*) " -> ");
       printRegister(rd);
       print((int*) "=");
-      printInteger(*(registers+rd));
+      printInteger(*(getFrameForContextData(registers, rd)));
     }
     println();
   }
@@ -5897,14 +5913,14 @@ void fct_mflo() {
       print((int*) ": ");
       printRegister(rd);
       print((int*) "=");
-      printInteger(*(registers+rd));
+      printInteger(*(getFrameForContextData(registers, rd)));
       print((int*) ",$lo=");
       printInteger(reg_lo);
     }
   }
 
   if (interpret) {
-    *(registers+rd) = reg_lo;
+    *(getFrameForContextData(registers, rd)) = reg_lo;
 
     pc = pc + WORDSIZE;
   }
@@ -5914,7 +5930,7 @@ void fct_mflo() {
       print((int*) " -> ");
       printRegister(rd);
       print((int*) "=");
-      printInteger(*(registers+rd));
+      printInteger(*(getFrameForContextData(registers, rd)));
     }
     println();
   }
@@ -5931,11 +5947,11 @@ void fct_multu() {
       print((int*) ": ");
       printRegister(rs);
       print((int*) "=");
-      printInteger(*(registers+rs));
+      printInteger(*(getFrameForContextData(registers, rs)));
       print((int*) ",");
       printRegister(rt);
       print((int*) "=");
-      printInteger(*(registers+rt));
+      printInteger(*(getFrameForContextData(registers, rt)));
       print((int*) ",$lo=");
       printInteger(reg_lo);
     }
@@ -5943,7 +5959,7 @@ void fct_multu() {
 
   if (interpret) {
     // TODO: 64-bit resolution currently not supported
-    reg_lo = *(registers+rs) * *(registers+rt);
+    reg_lo = *(getFrameForContextData(registers, rs)) * *(getFrameForContextData(registers, rt));
 
     pc = pc + WORDSIZE;
   }
@@ -5968,11 +5984,11 @@ void fct_divu() {
       print((int*) ": ");
       printRegister(rs);
       print((int*) "=");
-      printInteger(*(registers+rs));
+      printInteger(*(getFrameForContextData(registers, rs)));
       print((int*) ",");
       printRegister(rt);
       print((int*) "=");
-      printInteger(*(registers+rt));
+      printInteger(*(getFrameForContextData(registers, rt)));
       print((int*) ",$lo=");
       printInteger(reg_lo);
       print((int*) ",$hi=");
@@ -5981,8 +5997,8 @@ void fct_divu() {
   }
 
   if (interpret) {
-    reg_lo = *(registers+rs) / *(registers+rt);
-    reg_hi = *(registers+rs) % *(registers+rt);
+    reg_lo = *(getFrameForContextData(registers, rs)) / *(getFrameForContextData(registers, rt));
+    reg_hi = *(getFrameForContextData(registers, rs)) % *(getFrameForContextData(registers, rt));
 
     pc = pc + WORDSIZE;
   }
@@ -6011,20 +6027,20 @@ void fct_addu() {
       print((int*) ": ");
       printRegister(rd);
       print((int*) "=");
-      printInteger(*(registers+rd));
+      printInteger(*(getFrameForContextData(registers, rd)));
       print((int*) ",");
       printRegister(rs);
       print((int*) "=");
-      printInteger(*(registers+rs));
+      printInteger(*(getFrameForContextData(registers, rs)));
       print((int*) ",");
       printRegister(rt);
       print((int*) "=");
-      printInteger(*(registers+rt));
+      printInteger(*(getFrameForContextData(registers, rt)));
     }
   }
 
   if (interpret) {
-    *(registers+rd) = *(registers+rs) + *(registers+rt);
+    *(getFrameForContextData(registers, rd)) = *(getFrameForContextData(registers, rs)) + *(getFrameForContextData(registers, rt));
 
     pc = pc + WORDSIZE;
   }
@@ -6034,7 +6050,7 @@ void fct_addu() {
       print((int*) " -> ");
       printRegister(rd);
       print((int*) "=");
-      printInteger(*(registers+rd));
+      printInteger(*(getFrameForContextData(registers, rd)));
     }
     println();
   }
@@ -6053,20 +6069,20 @@ void fct_subu() {
       print((int*) ": ");
       printRegister(rd);
       print((int*) "=");
-      printInteger(*(registers+rd));
+      printInteger(*(getFrameForContextData(registers, rd)));
       print((int*) ",");
       printRegister(rs);
       print((int*) "=");
-      printInteger(*(registers+rs));
+      printInteger(*(getFrameForContextData(registers, rs)));
       print((int*) ",");
       printRegister(rt);
       print((int*) "=");
-      printInteger(*(registers+rt));
+      printInteger(*(getFrameForContextData(registers, rt)));
     }
   }
 
   if (interpret) {
-    *(registers+rd) = *(registers+rs) - *(registers+rt);
+    *(getFrameForContextData(registers, rd)) = *(getFrameForContextData(registers, rs)) - *(getFrameForContextData(registers, rt));
 
     pc = pc + WORDSIZE;
   }
@@ -6076,7 +6092,7 @@ void fct_subu() {
       print((int*) " -> ");
       printRegister(rd);
       print((int*) "=");
-      printInteger(*(registers+rd));
+      printInteger(*(getFrameForContextData(registers, rd)));
     }
     println();
   }
@@ -6098,20 +6114,20 @@ void op_lw() {
       print((int*) ": ");
       printRegister(rt);
       print((int*) "=");
-      printInteger(*(registers+rt));
+      printInteger(*(getFrameForContextData(registers, rt)));
       print((int*) ",");
       printRegister(rs);
       print((int*) "=");
-      printHexadecimal(*(registers+rs), 0);
+      printHexadecimal(*(getFrameForContextData(registers, rs)), 0);
     }
   }
 
   if (interpret) {
-    vaddr = *(registers+rs) + signExtend(immediate);
+    vaddr = *(getFrameForContextData(registers, rs)) + signExtend(immediate);
 
     if (isValidVirtualAddress(vaddr)) {
       if (isVirtualAddressMapped(pt, vaddr)) {
-        *(registers+rt) = loadVirtualMemory(pt, vaddr);
+        *(getFrameForContextData(registers, rt)) = loadVirtualMemory(pt, vaddr);
 
         // keep track of number of loads
         loads = loads + 1;
@@ -6130,7 +6146,7 @@ void op_lw() {
       print((int*) " -> ");
       printRegister(rt);
       print((int*) "=");
-      printInteger(*(registers+rt));
+      printInteger(*(getFrameForContextData(registers, rt)));
       print((int*) "=memory[");
       printHexadecimal(vaddr, 0);
       print((int*) "]");
@@ -6152,19 +6168,19 @@ void fct_slt() {
       print((int*) ": ");
       printRegister(rs);
       print((int*) "=");
-      printInteger(*(registers+rs));
+      printInteger(*(getFrameForContextData(registers, rs)));
       print((int*) ",");
       printRegister(rt);
       print((int*) "=");
-      printInteger(*(registers+rt));
+      printInteger(*(getFrameForContextData(registers, rt)));
     }
   }
 
   if (interpret) {
-    if (*(registers+rs) < *(registers+rt))
-      *(registers+rd) = 1;
+    if (*(getFrameForContextData(registers, rs)) < *(getFrameForContextData(registers, rt)))
+      *(getFrameForContextData(registers, rd)) = 1;
     else
-      *(registers+rd) = 0;
+      *(getFrameForContextData(registers, rd)) = 0;
 
     pc = pc + WORDSIZE;
   }
@@ -6174,7 +6190,7 @@ void fct_slt() {
       print((int*) " -> ");
       printRegister(rd);
       print((int*) "=");
-      printInteger(*(registers+rd));
+      printInteger(*(getFrameForContextData(registers, rd)));
     }
     println();
   }
@@ -6196,20 +6212,20 @@ void op_sw() {
       print((int*) ": ");
       printRegister(rt);
       print((int*) "=");
-      printInteger(*(registers+rt));
+      printInteger(*(getFrameForContextData(registers, rt)));
       print((int*) ",");
       printRegister(rs);
       print((int*) "=");
-      printHexadecimal(*(registers+rs), 0);
+      printHexadecimal(*(getFrameForContextData(registers, rs)), 0);
     }
   }
 
   if (interpret) {
-    vaddr = *(registers+rs) + signExtend(immediate);
+    vaddr = *(getFrameForContextData(registers, rs)) + signExtend(immediate);
 
     if (isValidVirtualAddress(vaddr)) {
       if (isVirtualAddressMapped(pt, vaddr)) {
-        storeVirtualMemory(pt, vaddr, *(registers+rt));
+        storeVirtualMemory(pt, vaddr, *(getFrameForContextData(registers, rt)));
 
         // keep track of number of stores
         stores = stores + 1;
@@ -6228,7 +6244,7 @@ void op_sw() {
       print((int*) " -> memory[");
       printHexadecimal(vaddr, 0);
       print((int*) "]=");
-      printInteger(*(registers+rt));
+      printInteger(*(getFrameForContextData(registers, rt)));
       print((int*) "=");
       printRegister(rt);
     }
@@ -6757,24 +6773,6 @@ void switchContext(int* from, int* to) {
   brk       = getBreak(to);
 }
 
-void switchContextMapping(int* from, int* to) {
-  // save machine state
-  setPC(from, pc);
-  setRegHi(from, reg_hi);
-  setRegLo(from, reg_lo);
-  setBreak(from, brk);
-
-  // restore machine state
-  pc        = getPC(to);
-  // get physical register address
-  registers = getPhysAddr(getID(to), (int) getRegs(to));
-  reg_hi    = getRegHi(to);
-  reg_lo    = getRegLo(to);
-  // get physical page table address
-  pt        = getPhysAddr(getID(to), (int) getPT(to));
-  brk       = getBreak(to);
-}
-
 void freeContext(int* context) {
   setNextContext(context, freeContexts);
 
@@ -6798,7 +6796,8 @@ int* deleteContext(int* context, int* from) {
 
 void mapPage(int* table, int page, int frame) {
   // assert: 0 <= page < VIRTUALMEMORYSIZE / PAGESIZE
-  *(table + page) = frame;
+
+  *(getFrameForContextData(table, page)) = frame;
 }
 
 // -----------------------------------------------------------------
@@ -7066,7 +7065,6 @@ int runOrHostUntilExitWithPageFaultHandling(int toID) {
         // TODO: use this table to unmap and reuse frames
         mapPage(getPT(fromContext), exceptionParameter, frame);
         // mapPage(getPhysAddr(getID(fromContext), (int) getPT(fromContext)), exceptionParameter, frame);
-
         // page table on microkernel boot level
         selfie_map(fromID, exceptionParameter, frame);
       } else if (exceptionNumber == EXCEPTION_EXIT)
