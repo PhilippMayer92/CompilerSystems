@@ -5364,7 +5364,7 @@ void doMap(int ID, int page, int frame) {
 
       if (parentContext != (int*) 0) {
         // assert: 0 <= frame < VIRTUALMEMORYSIZE
-        frame = getFrameForPage(getPhysAddr(getID(parentContext), (int) getPT(parentContext)), frame / PAGESIZE);
+        frame = getFrameForPage(getPT(parentContext), frame / PAGESIZE);
       }
       else if (debug_map) {
         print(binaryName);
