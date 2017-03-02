@@ -7027,7 +7027,9 @@ void printUsage() {
 
 int selfie() {
   int* option;
-
+  print((*int) "this is pmayer's selfie");
+  println();
+  
   if (numberOfRemainingArguments() == 0)
     printUsage();
   else {
