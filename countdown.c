@@ -1,6 +1,6 @@
 int counter=0;
 
-int countdown_at_idx(int* ptr, int idx){
+void countdown_at_idx(int* ptr, int idx){
 	int numb;
 	int red;
 	numb=*(ptr+idx);
