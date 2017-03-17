@@ -2049,14 +2049,19 @@ void getSymbol() {
         if(character!='0') base=10;
         else{
         	getCharacter();
-        	if(character=='0') base=8;
-        	else if(character=='x') base=16;
+        	if(isCharacterDigit()){
+        		if(character<'9') base=8;
+        	}else if(character=='x') base=16;
+        	else if(character=='X') base=16;
         	else if(character=='b') base=2;
+        	else if(character=='B') base=2;
         	else base=10;
         }
 
 
-	    if(base!=10) getCharacter();
+	    if(base!=10){
+	    	if(base!=8) getCharacter();
+	    }
 
 	    i = 0;
 	    while (isHexadecimalDigit()) {
@@ -2066,11 +2071,19 @@ void getSymbol() {
 	            exit(-1);
 	        }
 
+
 	        storeCharacter(integer, i, character);
 
 	        i = i + 1;
 
 	        getCharacter();
+	    }
+	    if(i==0){
+	    	if(base!=10){
+	    		syntaxErrorMessage((int*) "literal contains only prefix");
+
+	            exit(-1);
+	    	}
 	    }
 
 	    storeCharacter(integer, i, 0); // null-terminated string
