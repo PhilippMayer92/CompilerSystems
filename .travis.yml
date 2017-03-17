@@ -1,7 +1,10 @@
+branches:
+  except:
+  - gh-pages
+  - book
 language:
 - c
 os:
-- osx
 - linux
 compiler:
 - clang
