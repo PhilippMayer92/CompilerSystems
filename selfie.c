@@ -1450,7 +1450,7 @@ int atoi(int* s) {
 		else c=16;
 	} 
 	
-    if (c >= basis)
+    if (c >= b)
       // c was not a digit of the used base
       return -1;
 
