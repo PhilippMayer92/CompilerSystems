@@ -1429,12 +1429,15 @@ int atoi(int* s, int b) {
       return -1;
 	
 	if(c>9){
+		//letters 'A' till 'F'
 		if(c>=49){
 			if(c<=54) c=c-39;
 		}else{
+			//letters 'a' till 'f'
 			if (c>=17){
 				if(c<=22) c=c-7;
 			}else{
+				//other chars
 				c=16;
 			}
 		}
@@ -2056,9 +2059,11 @@ void getSymbol() {
         	else if(character=='b') base=2;
         	else if(character=='B') base=2;
         	else base=10;
+        	//if the literal contains only one 0 and know other symbol, nothing else is written into integer, but termination
+        	//char....this leads atoi to return the initial value of n, which is 0 
         }
 
-
+        //in case of base 2 or 16 the literal starts at the next char
 	    if(base!=10){
 	    	if(base!=8) getCharacter();
 	    }
@@ -2078,6 +2083,8 @@ void getSymbol() {
 
 	        getCharacter();
 	    }
+	    
+	    //if no integerliteral char is found after the prefix, a syntax error occurs
 	    if(i==0){
 	    	if(base!=10){
 	    		syntaxErrorMessage((int*) "literal contains only prefix");
