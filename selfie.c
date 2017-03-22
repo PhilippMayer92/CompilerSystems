@@ -1450,7 +1450,7 @@ int atoi(int* s, int b) {
     // assert: s contains a decimal number, that is, with base b
     n = n * b + c;
 
-    // go to the next digit
+    // go to next digit
     i = i + 1;
 
     c = loadCharacter(s, i);
