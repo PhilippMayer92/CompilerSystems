@@ -714,6 +714,12 @@ int OP_SW      = 0x2b;
 int* OPCODES; // strings representing MIPS opcodes
 
 int FCT_NOP     = 0x0;
+// hw3
+int FCT_SLL 	= 0x0;
+int FCT_SRL		= 0x2;
+int FCT_SLLV	= 0x4;
+int FCT_SRLV	= 0x6;
+// hw3
 int FCT_JR      = 0x8;
 int FCT_SYSCALL = 0xc;
 int FCT_MFHI    = 0x10;
@@ -752,7 +758,13 @@ void initDecoder() {
 
   FUNCTIONS = malloc(43 * SIZEOFINTSTAR);
 
-  *(FUNCTIONS + FCT_NOP)     = (int) "nop";
+  // hw3 *(FUNCTIONS + FCT_NOP)     = (int) "nop";
+  // hw3
+  *(FUNCTIONS + FCT_SLL)     = (int) "sll";
+  *(FUNCTIONS + FCT_SRL)     = (int) "srl";
+  *(FUNCTIONS + FCT_SLLV)    = (int) "sllv";
+  *(FUNCTIONS + FCT_SRLV)    = (int) "srlv";
+  // hw3
   *(FUNCTIONS + FCT_JR)      = (int) "jr";
   *(FUNCTIONS + FCT_SYSCALL) = (int) "syscall";
   *(FUNCTIONS + FCT_MFHI)    = (int) "mfhi";
@@ -772,6 +784,8 @@ int  loadBinary(int baddr);
 void storeBinary(int baddr, int instruction);
 
 void emitInstruction(int instruction);
+// hw3
+void emitRFormat(int opcode, int rs, int rt, int rd, int shamt, int function);
 void emitRFormat(int opcode, int rs, int rt, int rd, int function);
 void emitIFormat(int opcode, int rs, int rt, int immediate);
 void emitJFormat(int opcode, int instr_index);
@@ -3946,9 +3960,10 @@ void emitLeftShiftBy(int b) {
   // assert: 0 <= b < 15
 
   // load multiplication factor less than 2^15 to avoid sign extension
-  emitIFormat(OP_ADDIU, REG_ZR, nextTemporary(), twoToThePowerOf(b));
-  emitRFormat(OP_SPECIAL, currentTemporary(), nextTemporary(), 0, FCT_MULTU);
-  emitRFormat(OP_SPECIAL, 0, 0, currentTemporary(), FCT_MFLO);
+  // hw3 emitIFormat(OP_ADDIU, REG_ZR, nextTemporary(), twoToThePowerOf(b));
+  // hw3 emitRFormat(OP_SPECIAL, currentTemporary(), nextTemporary(), 0, FCT_MULTU);
+  // hw3 emitRFormat(OP_SPECIAL, 0, 0, currentTemporary(), FCT_MFLO);
+  emitRFormatExtended(OP_SPECIAL,,,0, b, FCT_SLL);
 }
 
 void emitMainEntry() {
@@ -4204,13 +4219,15 @@ void printRegister(int reg) {
 // |opcode| rs  | rt  | rd  |00000|fction|
 // +------+-----+-----+-----+-----+------+
 //    6      5     5     5     5     6
-int encodeRFormat(int opcode, int rs, int rt, int rd, int function) {
+int encodeRFormat(int opcode, int rs, int rt, int rd, int shamt, int function) {
   // assert: 0 <= opcode < 2^6
   // assert: 0 <= rs < 2^5
   // assert: 0 <= rt < 2^5
   // assert: 0 <= rd < 2^5
+  // assert: 0 <= shamt < 2^5
   // assert: 0 <= function < 2^6
-  return leftShift(leftShift(leftShift(leftShift(opcode, 5) + rs, 5) + rt, 5) + rd, 11) + function;
+  // hw3 
+  return leftShift(leftShift(leftShift(leftShift(leftShift(opcode, 5) + rs, 5) + rt, 5) + rd, 5) + shamt, 6) + function;
 }
 
 // -----------------------------------------------------------------
@@ -4381,8 +4398,14 @@ void emitInstruction(int instruction) {
   }
 }
 
+// hw3
+void emitRFormatExtended(int opcode, int rs, int rt, int rd, int shamt, int function){
+	emitInstruction(encodeRFormat(opcode, rs, rt, rd, shamt, function));
+}
+
 void emitRFormat(int opcode, int rs, int rt, int rd, int function) {
-  emitInstruction(encodeRFormat(opcode, rs, rt, rd, function));
+  // hw3
+  emitInstruction(encodeRFormat(opcode, rs, rt, rd, 0, function));
 
   if (opcode == OP_SPECIAL) {
     if (function == FCT_JR)
