@@ -672,7 +672,7 @@ void initRegister() {
 // ---------------------------- ENCODER ----------------------------
 // -----------------------------------------------------------------
 
-int encodeRFormat(int opcode, int rs, int rt, int rd, int function);
+int encodeRFormat(int opcode, int rs, int rt, int rd, int shamt, int function);
 int encodeIFormat(int opcode, int rs, int rt, int immediate);
 int encodeJFormat(int opcode, int instr_index);
 
@@ -686,6 +686,8 @@ int getOpcode(int instruction);
 int getRS(int instruction);
 int getRT(int instruction);
 int getRD(int instruction);
+// hw3
+int getShamt(int instruction);
 int getFunction(int instruction);
 int getImmediate(int instruction);
 int getInstrIndex(int instruction);
@@ -738,6 +740,8 @@ int opcode      = 0;
 int rs          = 0;
 int rt          = 0;
 int rd          = 0;
+// hw3
+int shamt		= 0;
 int immediate   = 0;
 int function    = 0;
 int instr_index = 0;
@@ -785,7 +789,7 @@ void storeBinary(int baddr, int instruction);
 
 void emitInstruction(int instruction);
 // hw3
-void emitRFormat(int opcode, int rs, int rt, int rd, int shamt, int function);
+void emitRFormatExtended(int opcode, int rs, int rt, int rd, int shamt, int function);
 void emitRFormat(int opcode, int rs, int rt, int rd, int function);
 void emitIFormat(int opcode, int rs, int rt, int immediate);
 void emitJFormat(int opcode, int instr_index);
@@ -977,6 +981,12 @@ void initMemory(int megabytes) {
 
 void fct_syscall();
 void fct_nop();
+// hw3 
+void fct_sll();
+void fct_srl();
+void fct_sllv();
+void fct_srlv();
+// hw3
 void op_jal();
 void op_j();
 void op_beq();
@@ -3963,7 +3973,8 @@ void emitLeftShiftBy(int b) {
   // hw3 emitIFormat(OP_ADDIU, REG_ZR, nextTemporary(), twoToThePowerOf(b));
   // hw3 emitRFormat(OP_SPECIAL, currentTemporary(), nextTemporary(), 0, FCT_MULTU);
   // hw3 emitRFormat(OP_SPECIAL, 0, 0, currentTemporary(), FCT_MFLO);
-  emitRFormatExtended(OP_SPECIAL,,,0, b, FCT_SLL);
+  // hw3
+  emitRFormatExtended(OP_SPECIAL, 0, currentTemporary(), currentTemporary(), b, FCT_SLL);
 }
 
 void emitMainEntry() {
@@ -4216,7 +4227,7 @@ void printRegister(int reg) {
 // 32 bit
 //
 // +------+-----+-----+-----+-----+------+
-// |opcode| rs  | rt  | rd  |00000|fction|
+// |opcode| rs  | rt  | rd  |shamt|fction|
 // +------+-----+-----+-----+-----+------+
 //    6      5     5     5     5     6
 int encodeRFormat(int opcode, int rs, int rt, int rd, int shamt, int function) {
@@ -4282,6 +4293,11 @@ int getRD(int instruction) {
   return rightShift(leftShift(instruction, 16), 27);
 }
 
+// hw3
+int getShamt(int instruction){
+	return rightShift(leftShift(instruction, 21), 27);
+}
+
 int getFunction(int instruction) {
   return rightShift(leftShift(instruction, 26), 26);
 }
@@ -4306,13 +4322,15 @@ int signExtend(int immediate) {
 // 32 bit
 //
 // +------+-----+-----+-----+-----+------+
-// |opcode| rs  | rt  | rd  |00000|fction|
+// |opcode| rs  | rt  | rd  |shamt|fction|
 // +------+-----+-----+-----+-----+------+
 //    6      5     5     5     5     6
 void decodeRFormat() {
   rs          = getRS(ir);
   rt          = getRT(ir);
   rd          = getRD(ir);
+  // hw3
+  shamt		  = getShamt(ir);
   immediate   = 0;
   function    = getFunction(ir);
   instr_index = 0;
@@ -5616,6 +5634,55 @@ void fct_nop() {
     pc = pc + WORDSIZE;
 }
 
+// hw3 start
+void fct_sll(){
+	if(debug){
+		printFunction(function);
+	}
+
+	if(interpret){
+		*(registers+rd) = leftShift( *(registers+rt), shamt);
+
+    	pc = pc + WORDSIZE;
+	}
+}
+
+void fct_srl(){
+	if(debug){
+		printFunction(function);
+	}
+
+	if(interpret){
+		*(registers+rd) = rightShift( *(registers+rt), shamt);
+
+    	pc = pc + WORDSIZE;
+	}
+}
+
+void fct_sllv(){
+	if(debug){
+		printFunction(function);
+	}
+
+	if(interpret){
+		*(registers+rd) = leftShift( *(registers+rt), *(registers+rs));
+
+    	pc = pc + WORDSIZE;
+	}
+}
+void fct_srlv(){
+	if(debug){
+		printFunction(function);
+	}
+
+	if(interpret){
+		*(registers+rd) = rightShift( *(registers+rt), *(registers+rs));
+
+    	pc = pc + WORDSIZE;
+	}
+}
+//hw3 ende
+
 void op_jal() {
   if (debug) {
     printOpcode(opcode);
@@ -6310,8 +6377,16 @@ void execute() {
   }
 
   if (opcode == OP_SPECIAL) {
-    if (function == FCT_NOP)
-      fct_nop();
+    // hw3 start
+    if (function == FCT_SLL)
+      fct_sll();
+    else if (function == FCT_SRL)
+      fct_srl();
+    else if (function == FCT_SLLV)
+      fct_sllv();
+    else if (function == FCT_SRLV)
+      fct_srlv();
+    // hw3
     else if (function == FCT_ADDU)
       fct_addu();
     else if (function == FCT_SUBU)
