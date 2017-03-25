@@ -762,7 +762,6 @@ void initDecoder() {
 
   FUNCTIONS = malloc(43 * SIZEOFINTSTAR);
 
-  // hw3 *(FUNCTIONS + FCT_NOP)     = (int) "nop";
   // hw3
   *(FUNCTIONS + FCT_SLL)     = (int) "sll";
   *(FUNCTIONS + FCT_SRL)     = (int) "srl";
@@ -980,13 +979,12 @@ void initMemory(int megabytes) {
 // -----------------------------------------------------------------
 
 void fct_syscall();
-void fct_nop();
-// hw3 
+// hw3 start
 void fct_sll();
 void fct_srl();
 void fct_sllv();
 void fct_srlv();
-// hw3
+// hw3 end
 void op_jal();
 void op_j();
 void op_beq();
@@ -1758,6 +1756,7 @@ void printOctal(int n, int a) {
 }
 
 void printBinary(int n, int a) {
+  //hw3
   print((int*) "0b");
   print(itoa(n, integer_buffer, 2, a, 0));
 }
@@ -5623,16 +5622,6 @@ void fct_syscall() {
       throwException(EXCEPTION_UNKNOWNSYSCALL, 0);
     }
   }
-}
-
-void fct_nop() {
-  if (debug) {
-    printFunction(function);
-    println();
-  }
-
-  if (interpret)
-    pc = pc + WORDSIZE;
 }
 
 // hw3 start
