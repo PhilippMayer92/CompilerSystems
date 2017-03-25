@@ -1758,6 +1758,7 @@ void printOctal(int n, int a) {
 }
 
 void printBinary(int n, int a) {
+  print((int*) "0b");
   print(itoa(n, integer_buffer, 2, a, 0));
 }
 
@@ -5636,8 +5637,33 @@ void fct_nop() {
 
 // hw3 start
 void fct_sll(){
+	int noNop;
+	noNop=1;
 	if(debug){
-		printFunction(function);
+		if(rd==0){
+			if(rt==0){
+				if(shamt==0) noNop=0;
+			}
+		}
+		if(noNop){
+			printFunction(function);
+			print((int*) " ");
+			printRegister(rt);
+			print(",");
+			printRegister(rd);
+			print(",");
+			printInteger(shamt);
+			if (interpret) {
+		    	print((int*) ": ");
+		    	printRegister(rt);
+		    	print((int*) "=");
+		    	printBinary(*(registers+rt), 0);
+		    	print((int*) ", shamt=");
+		    	printInteger(shamt);
+    		}
+		}else{
+			print((int*) "nop");
+		}
 	}
 
 	if(interpret){
@@ -5645,11 +5671,37 @@ void fct_sll(){
 
     	pc = pc + WORDSIZE;
 	}
+
+	if (debug) {
+	    if (interpret) {
+	      	if(noNop){
+		    	print((int*) " -> ");
+		    	printRegister(rd);
+		    	print((int*) "=");
+		    	printBinary(*(registers+rd), 0);
+		    }
+	 	}
+	 	println();
+    }
 }
 
 void fct_srl(){
 	if(debug){
 		printFunction(function);
+		print((int*) " ");
+		printRegister(rt);
+		print(",");
+		printRegister(rd);
+		print(",");
+		printInteger(shamt);
+		if (interpret) {
+		    print((int*) ": ");
+		    printRegister(rt);
+		    print((int*) "=");
+		    printBinary(*(registers+rt), 0);
+		    print((int*) ", shamt=");
+		    printInteger(shamt);
+    	}
 	}
 
 	if(interpret){
@@ -5657,11 +5709,37 @@ void fct_srl(){
 
     	pc = pc + WORDSIZE;
 	}
+
+	if (debug) {
+		if (interpret) {
+			print((int*) " -> ");
+			printRegister(rd);
+			print((int*) "=");
+			printBinary(*(registers+rd), 0);
+		}
+		println();
+    }
 }
 
 void fct_sllv(){
 	if(debug){
 		printFunction(function);
+		print((int*) " ");
+		printRegister(rs);
+		print(",");
+		printRegister(rt);
+		print(",");
+		printRegister(rd);
+		if (interpret) {
+		    print((int*) ": ");
+		    printRegister(rt);
+		    print((int*) "=");
+		    printBinary(*(registers+rt), 0);
+		    print((int*) ", ");
+		    printRegister(rs);
+		    print((int*) "=");
+		    printBinary(*(registers+rs), 0);
+    	}
 	}
 
 	if(interpret){
@@ -5669,10 +5747,37 @@ void fct_sllv(){
 
     	pc = pc + WORDSIZE;
 	}
+
+	if (debug) {
+		if (interpret) {
+			print((int*) " -> ");
+			printRegister(rd);
+			print((int*) "=");
+			printBinary(*(registers+rd), 0);
+		}
+		println();
+    }
 }
+
 void fct_srlv(){
 	if(debug){
 		printFunction(function);
+		print((int*) " ");
+		printRegister(rs);
+		print(",");
+		printRegister(rt);
+		print(",");
+		printRegister(rd);
+		if (interpret) {
+		    print((int*) ": ");
+		    printRegister(rt);
+		    print((int*) "=");
+		    printBinary(*(registers+rt), 0);
+		    print((int*) ", ");
+		    printRegister(rs);
+		    print((int*) "=");
+		    printBinary(*(registers+rs), 0);
+    	}
 	}
 
 	if(interpret){
@@ -5680,6 +5785,16 @@ void fct_srlv(){
 
     	pc = pc + WORDSIZE;
 	}
+
+	if (debug) {
+		if (interpret) {
+			print((int*) " -> ");
+			printRegister(rd);
+			print((int*) "=");
+			printBinary(*(registers+rd), 0);
+		}
+		println();
+    }
 }
 //hw3 ende
 
