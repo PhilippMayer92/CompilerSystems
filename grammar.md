@@ -57,7 +57,7 @@ call             = identifier "(" [ expression { "," expression } ] ")" .
 
 expression       = shiftExpression [ ( "==" | "!=" | "<" | ">" | "<=" | ">=" ) shiftExpression ] .
 
-shiftExpression  = simpleExpression [ ( "<<" | ">>") simpleExpression ] .
+shiftExpression  = simpleExpression { ( "<<" | ">>") simpleExpression } .
 
 simpleExpression = [ "-" ] term { ( "+" | "-" ) term } .
 

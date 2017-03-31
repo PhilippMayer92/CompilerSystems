@@ -96,7 +96,7 @@ void initLibrary();
 void resetLibrary();
 
 int twoToThePowerOf(int p);
-int leftShift(int n, int b);
+// hw4 int leftShift(int n, int b);
 int rightShift(int n, int b);
 
 int  loadCharacter(int* s, int i);
@@ -316,6 +316,9 @@ int SYM_NOTEQ        = 24; // !=
 int SYM_MOD          = 25; // %
 int SYM_CHARACTER    = 26; // character
 int SYM_STRING       = 27; // string
+//hw4
+int SYM_LEFTSHIFT	 = 28; // <<
+int SYM_RIGHTSHIFT	 = 29; // >>
 
 int* SYMBOLS; // strings representing symbols
 
@@ -352,7 +355,8 @@ int  sourceFD   = 0;        // file descriptor of open source file
 // ------------------------- INITIALIZATION ------------------------
 
 void initScanner () {
-  SYMBOLS = malloc(28 * SIZEOFINTSTAR);
+  //hw4
+  SYMBOLS = malloc(30 * SIZEOFINTSTAR);
 
   *(SYMBOLS + SYM_IDENTIFIER)   = (int) "identifier";
   *(SYMBOLS + SYM_INTEGER)      = (int) "integer";
@@ -382,6 +386,9 @@ void initScanner () {
   *(SYMBOLS + SYM_MOD)          = (int) "%";
   *(SYMBOLS + SYM_CHARACTER)    = (int) "character";
   *(SYMBOLS + SYM_STRING)       = (int) "string";
+  //hw4
+  *(SYMBOLS + SYM_LEFTSHIFT)    = (int) "<<";
+  *(SYMBOLS + SYM_RIGHTSHIFT)   = (int) ">>";
 
   character = CHAR_EOF;
   symbol    = SYM_EOF;
@@ -497,6 +504,8 @@ int isLiteral();
 int isStarOrDivOrModulo();
 int isPlusOrMinus();
 int isComparison();
+//hw4
+int isShift();
 
 int lookForFactor();
 int lookForStatement();
@@ -533,6 +542,8 @@ void gr_variable(int offset);
 int  gr_initialization(int type);
 void gr_procedure(int* procedure, int type);
 void gr_cstar();
+//hw4
+int gr_shiftExpression();
 
 // ------------------------ GLOBAL VARIABLES -----------------------
 
@@ -1314,19 +1325,19 @@ int twoToThePowerOf(int p) {
   return *(power_of_two_table + p);
 }
 
-int leftShift(int n, int b) {
+// hw4 int leftShift(int n, int b) {
   // assert: b >= 0;
 
-  if (b < 31)
+ // hw4 if (b < 31)
     // left shift of integers works by multiplication with powers of two
-    return n * twoToThePowerOf(b);
-  else if (b == 31)
+  //hw4  return n * twoToThePowerOf(b);
+  // hw4 else if (b == 31)
     // twoToThePowerOf(b) only works for b < 31
-    return n * twoToThePowerOf(30) * 2;
-  else
+  //hw4   return n * twoToThePowerOf(30) * 2;
+  //hw4 else
     // left shift of a 32-bit integer by more than 31 bits is always 0
-    return 0;
-}
+  //hw4  return 0;
+//hw4 }
 
 int rightShift(int n, int b) {
   // assert: b >= 0
@@ -1334,7 +1345,8 @@ int rightShift(int n, int b) {
   if (n >= 0) {
     if (b < 31)
       // right shift of positive integers works by division with powers of two
-      return n / twoToThePowerOf(b);
+      //hw4
+      return n >> b;
     else
       // right shift of a 32-bit integer by more than 31 bits is always 0
       return 0;
@@ -1342,8 +1354,9 @@ int rightShift(int n, int b) {
     // right shift of negative integers requires resetting the sign bit first,
     // then dividing with powers of two, and finally restoring the sign bit
     // but b bits to the right; this works even if n == INT_MIN
-    return ((n + 1) + INT_MAX) / twoToThePowerOf(b) +
-      (INT_MAX / twoToThePowerOf(b) + 1);
+    //hw4
+    return ((n + 1) + INT_MAX >> b) +
+      ((INT_MAX >> b) + 1);
   else if (b == 31)
     // right shift of a negative 32-bit integer by 31 bits is 1 (the sign bit)
     return 1;
@@ -1361,7 +1374,8 @@ int loadCharacter(int* s, int i) {
 
   // shift to-be-loaded character to the left resetting all bits to the left
   // then shift to-be-loaded character all the way to the right and return
-  return rightShift(leftShift(*(s + a), ((SIZEOFINT - 1) - (i % SIZEOFINT)) * 8), (SIZEOFINT - 1) * 8);
+  //hw4
+  return rightShift(*(s + a) << ((SIZEOFINT - 1) - (i % SIZEOFINT)) * 8, (SIZEOFINT - 1) * 8);
 }
 
 int* storeCharacter(int* s, int i, int c) {
@@ -1374,7 +1388,8 @@ int* storeCharacter(int* s, int i, int c) {
 
   // subtract the to-be-overwritten character resetting its bits in s
   // then add c setting its bits at the i-th position in s
-  *(s + a) = (*(s + a) - leftShift(loadCharacter(s, i), (i % SIZEOFINT) * 8)) + leftShift(c, (i % SIZEOFINT) * 8);
+  //hw4
+  *(s + a) = (*(s + a) - (loadCharacter(s, i) << (i % SIZEOFINT) * 8)) + (c << (i % SIZEOFINT) * 8);
 
   return s;
 }
@@ -1538,7 +1553,8 @@ int* itoa(int n, int* s, int b, int a, int p) {
         i = 1;
       } else {
         // reset msb, restore below
-        n   = rightShift(leftShift(n, 1), 1);
+        //hw4
+        n   = rightShift(n << 1, 1);
         msb = 1;
       }
     }
@@ -2259,11 +2275,17 @@ void getSymbol() {
         getCharacter();
 
         if (character == CHAR_EQUAL) {
-          getCharacter();
+          	getCharacter();
 
-          symbol = SYM_LEQ;
-        } else
-          symbol = SYM_LT;
+          	symbol = SYM_LEQ;
+        //hw4
+        } else if(character == CHAR_LT){
+        	getCharacter();
+
+        	symbol=SYM_LEFTSHIFT;
+        }else{
+          	symbol = SYM_LT;
+        }
 
       } else if (character == CHAR_GT) {
         getCharacter();
@@ -2272,8 +2294,14 @@ void getSymbol() {
           getCharacter();
 
           symbol = SYM_GEQ;
-        } else
+        //hw4
+        } else if(character == CHAR_GT){
+        	getCharacter();
+
+        	symbol=SYM_RIGHTSHIFT;
+        }else{
           symbol = SYM_GT;
+        }
 
       } else if (character == CHAR_EXCLAMATION) {
         getCharacter();
@@ -2501,6 +2529,13 @@ int isComparison() {
     return 0;
 }
 
+//hw4
+int isShift(){
+	if(symbol == SYM_LEFTSHIFT) return 1;
+	else if(symbol == SYM_RIGHTSHIFT) return 1;
+	else return 0;
+}
+
 int lookForFactor() {
   if (symbol == SYM_LPARENTHESIS)
     return 0;
@@ -2714,7 +2749,7 @@ void load_integer(int value) {
       emitLeftShiftBy(14);
 
       // and finally add 14 lsbs
-      emitIFormat(OP_ADDIU, currentTemporary(), currentTemporary(), rightShift(leftShift(value, 18), 18));
+      emitIFormat(OP_ADDIU, currentTemporary(), currentTemporary(), rightShift(value << 18, 18));
     } else {
       // load 14 msbs of a 31-bit number first
       emitIFormat(OP_ADDIU, REG_ZR, currentTemporary(), rightShift(value, 17));
@@ -2722,12 +2757,14 @@ void load_integer(int value) {
       emitLeftShiftBy(14);
 
       // then add the next 14 msbs
-      emitIFormat(OP_ADDIU, currentTemporary(), currentTemporary(), rightShift(leftShift(value, 15), 18));
+      //hw4
+      emitIFormat(OP_ADDIU, currentTemporary(), currentTemporary(), rightShift(value << 15, 18));
 
       emitLeftShiftBy(3);
 
       // and finally add the remaining 3 lsbs
-      emitIFormat(OP_ADDIU, currentTemporary(), currentTemporary(), rightShift(leftShift(value, 29), 29));
+      //hw4
+      emitIFormat(OP_ADDIU, currentTemporary(), currentTemporary(), rightShift(value << 29, 29));
     }
   } else {
     // load largest positive 16-bit number with a single bit set: 2^14
@@ -3096,6 +3133,36 @@ int gr_term() {
   return ltype;
 }
 
+//hw4 start
+int gr_shiftExpression(){
+	int operatorSymbol;
+	int ltype;
+	int rtype;
+
+	ltype = gr_simpleExpression();
+
+	while(isShift()){
+		operatorSymbol = symbol;
+
+    	getSymbol();
+
+    	rtype = gr_simpleExpression();
+
+    	if(rtype != INT_T){
+    		typeWarning(INT_T, rtype);
+    	}
+
+    	if(operatorSymbol == SYM_LEFTSHIFT){
+    		emitRFormat(OP_SPECIAL, currentTemporary(), previousTemporary(), previousTemporary(), FCT_SLLV);
+    	} else if(operatorSymbol == SYM_RIGHTSHIFT){
+    		emitRFormat(OP_SPECIAL, currentTemporary(), previousTemporary(), previousTemporary(), FCT_SRLV);
+    	}
+    	tfree(1);
+	}
+	return ltype;
+}
+//hw4 ende
+
 int gr_simpleExpression() {
   int sign;
   int ltype;
@@ -3105,25 +3172,26 @@ int gr_simpleExpression() {
   // assert: n = allocatedTemporaries
 
   // optional: -
-  if (symbol == SYM_MINUS) {
-    sign = 1;
+	if (symbol == SYM_MINUS) {
+	    sign = 1;
 
-    mayBeINTMIN = 1;
-    isINTMIN    = 0;
+	    mayBeINTMIN = 1;
+	    isINTMIN    = 0;
 
-    getSymbol();
+	    getSymbol();
 
-    mayBeINTMIN = 0;
+	    mayBeINTMIN = 0;
 
-    if (isINTMIN) {
-      isINTMIN = 0;
+	    if (isINTMIN) {
+	      isINTMIN = 0;
 
-      // avoids 0-INT_MIN overflow when bootstrapping
-      // even though 0-INT_MIN == INT_MIN
-      sign = 0;
-    }
-  } else
-    sign = 0;
+	      // avoids 0-INT_MIN overflow when bootstrapping
+	      // even though 0-INT_MIN == INT_MIN
+	      sign = 0;
+	    }
+	} else {
+	    sign = 0;
+	}
 
   ltype = gr_term();
 
@@ -3155,6 +3223,7 @@ int gr_simpleExpression() {
           // pointer arithmetic: factor of 2^2 of integer operand
           emitLeftShiftBy(2);
       } else if (rtype == INTSTAR_T)
+        //fehler?
         typeWarning(ltype, rtype);
 
       emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_ADDU);
@@ -3180,8 +3249,8 @@ int gr_expression() {
   int rtype;
 
   // assert: n = allocatedTemporaries
-
-  ltype = gr_simpleExpression();
+  //hw4 
+  ltype = gr_shiftExpression();
 
   // assert: allocatedTemporaries == n + 1
 
@@ -3190,8 +3259,8 @@ int gr_expression() {
     operatorSymbol = symbol;
 
     getSymbol();
-
-    rtype = gr_simpleExpression();
+    //hw4 
+    rtype = gr_shiftExpression();
 
     // assert: allocatedTemporaries == n + 2
 
@@ -4238,7 +4307,8 @@ int encodeRFormat(int opcode, int rs, int rt, int rd, int shamt, int function) {
   // assert: 0 <= shamt < 2^5
   // assert: 0 <= function < 2^6
   // hw3 
-  return leftShift(leftShift(leftShift(leftShift(leftShift(opcode, 5) + rs, 5) + rt, 5) + rd, 5) + shamt, 6) + function;
+  //hw4
+  return (((((opcode << 5) + rs << 5) + rt << 5) + rd << 5) + shamt << 6) + function;
 }
 
 // -----------------------------------------------------------------
@@ -4256,8 +4326,8 @@ int encodeIFormat(int opcode, int rs, int rt, int immediate) {
   if (immediate < 0)
     // convert from 32-bit to 16-bit two's complement
     immediate = immediate + twoToThePowerOf(16);
-
-  return leftShift(leftShift(leftShift(opcode, 5) + rs, 5) + rt, 16) + immediate;
+  //hw4
+  return (((opcode << 5) + rs << 5) + rt << 16) + immediate;
 }
 
 // --------------------------------------------------------------
@@ -4270,7 +4340,8 @@ int encodeIFormat(int opcode, int rs, int rt, int immediate) {
 int encodeJFormat(int opcode, int instr_index) {
   // assert: 0 <= opcode < 2^6
   // assert: 0 <= instr_index < 2^26
-  return leftShift(opcode, 26) + instr_index;
+  //hw4
+  return (opcode << 26) + instr_index;
 }
 
 // -----------------------------------------------------------------
@@ -4282,32 +4353,39 @@ int getOpcode(int instruction) {
 }
 
 int getRS(int instruction) {
-  return rightShift(leftShift(instruction, 6), 27);
+  //hw4
+  return rightShift(instruction << 6, 27);
 }
 
 int getRT(int instruction) {
-  return rightShift(leftShift(instruction, 11), 27);
+  //hw4
+  return rightShift(instruction << 11, 27);
 }
 
 int getRD(int instruction) {
-  return rightShift(leftShift(instruction, 16), 27);
+  //hw4
+  return rightShift(instruction << 16, 27);
 }
 
 // hw3
 int getShamt(int instruction){
-	return rightShift(leftShift(instruction, 21), 27);
+	//hw4
+	return rightShift(instruction << 21, 27);
 }
 
 int getFunction(int instruction) {
-  return rightShift(leftShift(instruction, 26), 26);
+  //hw4
+  return rightShift(instruction << 26, 26);
 }
 
 int getImmediate(int instruction) {
-  return rightShift(leftShift(instruction, 16), 16);
+  //hw4
+  return rightShift(instruction << 16, 16);
 }
 
 int getInstrIndex(int instruction) {
-  return rightShift(leftShift(instruction, 6), 6);
+  //hw4
+  return rightShift(instruction << 6, 6);
 }
 
 int signExtend(int immediate) {
@@ -5656,7 +5734,7 @@ void fct_sll(){
 	}
 
 	if(interpret){
-		*(registers+rd) = leftShift( *(registers+rt), shamt);
+		*(registers+rd) =  *(registers+rt) << shamt;
 
     	pc = pc + WORDSIZE;
 	}
@@ -5732,7 +5810,7 @@ void fct_sllv(){
 	}
 
 	if(interpret){
-		*(registers+rd) = leftShift( *(registers+rt), *(registers+rs));
+		*(registers+rd) =  *(registers+rt) << *(registers+rs);
 
     	pc = pc + WORDSIZE;
 	}
@@ -6410,8 +6488,9 @@ int encodeException(int exception, int parameter) {
   if (parameter < 0)
     // convert from 32-bit to 16-bit two's complement
     parameter = parameter + twoToThePowerOf(16);
-
-  return leftShift(exception, 16) + parameter;
+  
+  //hw4
+  return (exception << 16) + parameter;
 }
 
 int decodeExceptionNumber(int status) {
@@ -6419,7 +6498,8 @@ int decodeExceptionNumber(int status) {
 }
 
 int decodeExceptionParameter(int status) {
-  return signExtend(rightShift(leftShift(status, 16), 16));
+  //hw4
+  return signExtend(rightShift(status << 16, 16));
 }
 
 void printStatus(int status) {
