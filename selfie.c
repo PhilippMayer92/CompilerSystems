@@ -316,9 +316,15 @@ int SYM_NOTEQ        = 24; // !=
 int SYM_MOD          = 25; // %
 int SYM_CHARACTER    = 26; // character
 int SYM_STRING       = 27; // string
-//hw4
-int SYM_LEFTSHIFT	 = 28; // <<
+//hw4 start
+int SYM_LEFTSHIFT	   = 28; // <<
 int SYM_RIGHTSHIFT	 = 29; // >>
+//hw4 end
+//hw5 start
+int SYM_AND_BITW     = 30; //&
+int SYM_OR_BITW      = 31; //|
+int SYM_NOT_BITW     = 32; //~
+//hw5 end
 
 int* SYMBOLS; // strings representing symbols
 
@@ -355,8 +361,8 @@ int  sourceFD   = 0;        // file descriptor of open source file
 // ------------------------- INITIALIZATION ------------------------
 
 void initScanner () {
-  //hw4
-  SYMBOLS = malloc(30 * SIZEOFINTSTAR);
+  //hw4 hw5
+  SYMBOLS = malloc(33 * SIZEOFINTSTAR);
 
   *(SYMBOLS + SYM_IDENTIFIER)   = (int) "identifier";
   *(SYMBOLS + SYM_INTEGER)      = (int) "integer";
@@ -386,9 +392,15 @@ void initScanner () {
   *(SYMBOLS + SYM_MOD)          = (int) "%";
   *(SYMBOLS + SYM_CHARACTER)    = (int) "character";
   *(SYMBOLS + SYM_STRING)       = (int) "string";
-  //hw4
+  //hw4 start
   *(SYMBOLS + SYM_LEFTSHIFT)    = (int) "<<";
   *(SYMBOLS + SYM_RIGHTSHIFT)   = (int) ">>";
+  //hw4 end
+  //hw5 start
+  *(SYMBOLS + SYM_AND_BITW)     = (int) "&";
+  *(SYMBOLS + SYM_OR_BITW)      = (int) "|";
+  *(SYMBOLS + SYM_NOT_BITW)     = (int) "~";
+  //hw5 end
 
   character = CHAR_EOF;
   symbol    = SYM_EOF;
@@ -721,18 +733,22 @@ int OP_JAL     = 0x3;
 int OP_BEQ     = 0x4;
 int OP_BNE     = 0x5;
 int OP_ADDIU   = 0x9;
+//hw5 start
+int OP_ANDI    = 0xC;
+int OP_ORI     = 0xD;
+//hw5 end
 int OP_LW      = 0x23;
 int OP_SW      = 0x2b;
 
 int* OPCODES; // strings representing MIPS opcodes
 
 int FCT_NOP     = 0x0;
-// hw3
+// hw3 start
 int FCT_SLL 	= 0x0;
 int FCT_SRL		= 0x2;
 int FCT_SLLV	= 0x4;
 int FCT_SRLV	= 0x6;
-// hw3
+// hw3 end
 int FCT_JR      = 0x8;
 int FCT_SYSCALL = 0xc;
 int FCT_MFHI    = 0x10;
@@ -741,6 +757,11 @@ int FCT_MULTU   = 0x19;
 int FCT_DIVU    = 0x1b;
 int FCT_ADDU    = 0x21;
 int FCT_SUBU    = 0x23;
+//hw5 start
+int FCT_AND     = 0x24;
+int FCT_OR      = 0x25;
+int FCT_NOR     = 0x27;
+//hw5 end
 int FCT_SLT     = 0x2a;
 
 int* FUNCTIONS; // strings representing MIPS functions
@@ -768,17 +789,21 @@ void initDecoder() {
   *(OPCODES + OP_BEQ)     = (int) "beq";
   *(OPCODES + OP_BNE)     = (int) "bne";
   *(OPCODES + OP_ADDIU)   = (int) "addiu";
+  //hw5 start
+  *(OPCODES + OP_ANDI)    = (int) "andi";
+  *(OPCODES + OP_ORI)     = (int) "ori";
+  //hw5 end
   *(OPCODES + OP_LW)      = (int) "lw";
   *(OPCODES + OP_SW)      = (int) "sw";
 
   FUNCTIONS = malloc(43 * SIZEOFINTSTAR);
 
-  // hw3
+  // hw3 start
   *(FUNCTIONS + FCT_SLL)     = (int) "sll";
   *(FUNCTIONS + FCT_SRL)     = (int) "srl";
   *(FUNCTIONS + FCT_SLLV)    = (int) "sllv";
   *(FUNCTIONS + FCT_SRLV)    = (int) "srlv";
-  // hw3
+  // hw3 end
   *(FUNCTIONS + FCT_JR)      = (int) "jr";
   *(FUNCTIONS + FCT_SYSCALL) = (int) "syscall";
   *(FUNCTIONS + FCT_MFHI)    = (int) "mfhi";
@@ -787,6 +812,11 @@ void initDecoder() {
   *(FUNCTIONS + FCT_DIVU)    = (int) "divu";
   *(FUNCTIONS + FCT_ADDU)    = (int) "addu";
   *(FUNCTIONS + FCT_SUBU)    = (int) "subu";
+  //hw5 start
+  *(FUNCTIONS + FCT_AND)     = (int) "and";
+  *(FUNCTIONS + FCT_OR)      = (int) "or";
+  *(FUNCTIONS + FCT_NOR)     = (int) "nor";
+  //hw5 end
   *(FUNCTIONS + FCT_SLT)     = (int) "slt";
 }
 
@@ -1011,6 +1041,13 @@ void fct_subu();
 void op_lw();
 void fct_slt();
 void op_sw();
+//hw5 start
+void fct_and();
+void fct_or();
+void fct_nor();
+void op_andi();
+void op_ori();
+//hw5 end
 
 // -----------------------------------------------------------------
 // -------------------------- INTERPRETER --------------------------
