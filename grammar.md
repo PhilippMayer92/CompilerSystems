@@ -55,11 +55,13 @@ statement        = call ";" | while | if | return ";" |
 
 call             = identifier "(" [ expression { "," expression } ] ")" .
 
-expression       = shiftExpression [ ( "==" | "!=" | "<" | ">" | "<=" | ">=" ) shiftExpression ] .
+expression       = compExpression [ ( "&" | "|" ) compExpression ] .
+
+compExpression   = shiftExpression [ ( "==" | "!=" | "<" | ">" | "<=" | ">=" ) shiftExpression ] .
 
 shiftExpression  = simpleExpression { ( "<<" | ">>") simpleExpression } .
 
-simpleExpression = [ "-" ] term { ( "+" | "-" ) term } .
+simpleExpression = [ "-" | "~" ] term { ( "+" | "-" ) term } .
 
 term             = factor { ( "*" | "/" | "%" ) factor } .
 

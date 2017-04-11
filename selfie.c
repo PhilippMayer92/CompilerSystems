@@ -96,7 +96,6 @@ void initLibrary();
 void resetLibrary();
 
 int twoToThePowerOf(int p);
-// hw4 int leftShift(int n, int b);
 int rightShift(int n, int b);
 
 int  loadCharacter(int* s, int i);
@@ -154,6 +153,11 @@ int CHAR_EXCLAMATION  = '!';
 int CHAR_PERCENTAGE   = '%';
 int CHAR_SINGLEQUOTE  = 39; // ASCII code 39 = '
 int CHAR_DOUBLEQUOTE  = '"';
+//hw5 start
+int CHAR_AND          = 38; // '&'
+int CHAR_OR           = 124; //'|'
+int CHAR_NOT          = 126; //'~'
+//hw5 end
 
 int SIZEOFINT     = 4; // must be the same as WORDSIZE
 int SIZEOFINTSTAR = 4; // must be the same as WORDSIZE
@@ -225,7 +229,7 @@ void initLibrary() {
 
   // compute INT_MAX and INT_MIN without integer overflows
   INT_MAX = (twoToThePowerOf(30) - 1) * 2 + 1;
-  INT_MIN = -INT_MAX - 1;
+  INT_MIN = ~INT_MAX;
 
   INT16_MAX = twoToThePowerOf(15) - 1;
   INT16_MIN = -INT16_MAX - 1;
@@ -518,6 +522,8 @@ int isPlusOrMinus();
 int isComparison();
 //hw4
 int isShift();
+//hw5 
+int isAndOrOr();
 
 int lookForFactor();
 int lookForStatement();
@@ -545,6 +551,8 @@ int  gr_factor();
 int  gr_term();
 int  gr_simpleExpression();
 int  gr_expression();
+//hw5
+int  gr_compExpression();
 void gr_while();
 void gr_if();
 void gr_return();
@@ -1362,20 +1370,6 @@ int twoToThePowerOf(int p) {
   return *(power_of_two_table + p);
 }
 
-// hw4 int leftShift(int n, int b) {
-  // assert: b >= 0;
-
- // hw4 if (b < 31)
-    // left shift of integers works by multiplication with powers of two
-  //hw4  return n * twoToThePowerOf(b);
-  // hw4 else if (b == 31)
-    // twoToThePowerOf(b) only works for b < 31
-  //hw4   return n * twoToThePowerOf(30) * 2;
-  //hw4 else
-    // left shift of a 32-bit integer by more than 31 bits is always 0
-  //hw4  return 0;
-//hw4 }
-
 int rightShift(int n, int b) {
   // assert: b >= 0
 
@@ -1405,28 +1399,65 @@ int rightShift(int n, int b) {
 int loadCharacter(int* s, int i) {
   // assert: i >= 0
   int a;
+  //hw5 start
+  int byteIndex;
+  int mask;
+  int b;
+  //hw5 end
 
   // a is the index of the word where the to-be-loaded i-th character in s is
   a = i / SIZEOFINT;
+  //hw5 start
+  //byteIndex is the index of the byte inside the word
+  byteIndex = i % SIZEOFINT;
 
-  // shift to-be-loaded character to the left resetting all bits to the left
-  // then shift to-be-loaded character all the way to the right and return
+  //create mask
+  mask = 0xFF;
+  mask = mask << (byteIndex * 8);
+
+  //get char by using mask
+  b = *(s + a);
+  b = b & mask;
+  b = b >> (byteIndex * 8);
+
   //hw4
-  return rightShift(*(s + a) << ((SIZEOFINT - 1) - (i % SIZEOFINT)) * 8, (SIZEOFINT - 1) * 8);
+  //hw5 return rightShift(*(s + a) << ((SIZEOFINT - 1) - (i % SIZEOFINT)) * 8, (SIZEOFINT - 1) * 8);
+  return b;
+  //hw5 end
 }
 
 int* storeCharacter(int* s, int i, int c) {
   // assert: i >= 0, all characters are 7-bit
   int a;
+  //hw5 start
+  int byteIndex;
+  int mask; 
+  int b;
+  //hw5 end
 
   // a is the index of the word where the with c
   // to-be-overwritten i-th character in s is
   a = i / SIZEOFINT;
 
-  // subtract the to-be-overwritten character resetting its bits in s
-  // then add c setting its bits at the i-th position in s
+  //hw5 start
+  //get byteIndex inside of word
+  byteIndex = i % SIZEOFINT;
+
+  //create mask to clear byte
+  mask = 0xFF;
+  mask = mask << (byteIndex * 8);
+  mask = ~ mask;
+
+  //delete former char at byteIndex
+  *(s + a) = *(s + a) & mask;
+
+  //set new char at byteIndex
+  c = c << (byteIndex * 8);
+  *(s + a) = *(s + a) | c;
+  //hw5 end
+
   //hw4
-  *(s + a) = (*(s + a) - (loadCharacter(s, i) << (i % SIZEOFINT) * 8)) + (c << (i % SIZEOFINT) * 8);
+  //hw5 *(s + a) = (*(s + a) - (loadCharacter(s, i) << (i % SIZEOFINT) * 8)) + (c << (i % SIZEOFINT) * 8);
 
   return s;
 }
@@ -2354,7 +2385,20 @@ void getSymbol() {
         getCharacter();
 
         symbol = SYM_MOD;
+      //hw5 start
+      } else if (character == CHAR_AND){
+        getCharacter();
 
+        symbol = SYM_AND_BITW;
+      } else if (character == CHAR_OR){
+        getCharacter();
+
+        symbol = SYM_OR_BITW;
+      } else if(character == CHAR_NOT){
+        getCharacter();
+
+        symbol = SYM_NOT_BITW;
+      //hw5 end
       } else {
         printLineNumber((int*) "error", lineNumber);
         print((int*) "found unknown character ");
@@ -2548,6 +2592,17 @@ int isPlusOrMinus() {
   else
     return 0;
 }
+
+//hw5 start
+int isAndOrOr(){
+  if (symbol == SYM_AND_BITW)
+    return 1;
+  else if (symbol == SYM_OR_BITW)
+    return 1;
+  else
+    return 0;
+}
+//hw5 end
 
 int isComparison() {
   if (symbol == SYM_EQUALITY)
@@ -3202,6 +3257,8 @@ int gr_shiftExpression(){
 
 int gr_simpleExpression() {
   int sign;
+  //hw5
+  int not;
   int ltype;
   int operatorSymbol;
   int rtype;
@@ -3209,29 +3266,41 @@ int gr_simpleExpression() {
   // assert: n = allocatedTemporaries
 
   // optional: -
-	if (symbol == SYM_MINUS) {
-	    sign = 1;
+  //hw5 start
+  if(symbol== SYM_NOT_BITW){
+    not=1;
+    sign=0;
+    getSymbol();
+    //hw5 end
+  }else if (symbol == SYM_MINUS) {
+      sign = 1;
 
-	    mayBeINTMIN = 1;
-	    isINTMIN    = 0;
+      //hw5
+      not=0;
 
-	    getSymbol();
+      mayBeINTMIN = 1;
+      isINTMIN    = 0;
 
-	    mayBeINTMIN = 0;
+      getSymbol();
 
-	    if (isINTMIN) {
-	      isINTMIN = 0;
+      mayBeINTMIN = 0;
 
-	      // avoids 0-INT_MIN overflow when bootstrapping
-	      // even though 0-INT_MIN == INT_MIN
-	      sign = 0;
-	    }
-	} else {
-	    sign = 0;
-	}
+      if (isINTMIN) {
+        isINTMIN = 0;
+
+        // avoids 0-INT_MIN overflow when bootstrapping
+        // even though 0-INT_MIN == INT_MIN
+        sign = 0;
+      }
+  }else{
+    //hw5
+    not=0;
+    sign=0;
+  }
 
   ltype = gr_term();
 
+  
   // assert: allocatedTemporaries == n + 1
 
   if (sign) {
@@ -3243,6 +3312,12 @@ int gr_simpleExpression() {
 
     emitRFormat(OP_SPECIAL, REG_ZR, currentTemporary(), currentTemporary(), FCT_SUBU);
   }
+
+  //hw5 start
+  if(not){
+    emitRFormat(OP_SPECIAL, currentTemporary(), REG_ZR, currentTemporary(), FCT_NOR);
+  }
+  //hw5 end
 
   // + or -?
   while (isPlusOrMinus()) {
@@ -3280,7 +3355,36 @@ int gr_simpleExpression() {
   return ltype;
 }
 
-int gr_expression() {
+//hw5 start
+int gr_expression(){
+  int ltype;
+  int rtype;
+  int operatorSymbol;
+
+  ltype=gr_compExpression();
+
+  while(isAndOrOr()){
+    operatorSymbol=symbol;
+
+    getSymbol();
+
+    rtype=gr_compExpression();
+
+    if(operatorSymbol==SYM_AND_BITW){
+      emitRFormat(OP_SPECIAL, currentTemporary(), previousTemporary(), previousTemporary(), FCT_AND);
+    }else{
+      emitRFormat(OP_SPECIAL, currentTemporary(), previousTemporary(), previousTemporary(), FCT_OR);
+    }
+
+    tfree(1);
+  }
+
+  return ltype;
+}
+//hw5 end
+
+//hw5 name changed
+int gr_compExpression() {
   int ltype;
   int operatorSymbol;
   int rtype;
@@ -4345,7 +4449,16 @@ int encodeRFormat(int opcode, int rs, int rt, int rd, int shamt, int function) {
   // assert: 0 <= function < 2^6
   // hw3 
   //hw4
-  return (((((opcode << 5) + rs << 5) + rt << 5) + rd << 5) + shamt << 6) + function;
+  //hw5 start
+  int code;
+  code=opcode << 26;
+  code=code|(rs << 21);
+  code=code|(rt << 16);
+  code=code|(rd << 11);
+  code=code|(shamt << 6);
+  code=code|function;
+  return code;
+  //hw5 end
 }
 
 // -----------------------------------------------------------------
@@ -4356,6 +4469,8 @@ int encodeRFormat(int opcode, int rs, int rt, int rd, int shamt, int function) {
 // +------+-----+-----+----------------+
 //    6      5     5          16
 int encodeIFormat(int opcode, int rs, int rt, int immediate) {
+  //hw5
+  int code;
   // assert: 0 <= opcode < 2^6
   // assert: 0 <= rs < 2^5
   // assert: 0 <= rt < 2^5
@@ -4364,7 +4479,13 @@ int encodeIFormat(int opcode, int rs, int rt, int immediate) {
     // convert from 32-bit to 16-bit two's complement
     immediate = immediate + twoToThePowerOf(16);
   //hw4
-  return (((opcode << 5) + rs << 5) + rt << 16) + immediate;
+  //hw5 start
+  code=opcode << 26;
+  code=code|(rs << 21);
+  code=code|(rt << 16);
+  code=code|immediate;
+  return code;
+  //hw5 
 }
 
 // --------------------------------------------------------------
@@ -4378,7 +4499,12 @@ int encodeJFormat(int opcode, int instr_index) {
   // assert: 0 <= opcode < 2^6
   // assert: 0 <= instr_index < 2^26
   //hw4
-  return (opcode << 26) + instr_index;
+  //hw5 start
+  int code;
+  code=opcode << 26;
+  code=code|instr_index;
+  return code;
+  //hw5 end 
 }
 
 // -----------------------------------------------------------------
@@ -4390,39 +4516,39 @@ int getOpcode(int instruction) {
 }
 
 int getRS(int instruction) {
-  //hw4
-  return rightShift(instruction << 6, 27);
+  //hw5
+  return rightShift(instruction & 0x3E00000, 21);
 }
 
 int getRT(int instruction) {
-  //hw4
-  return rightShift(instruction << 11, 27);
+  //hw5
+  return rightShift(instruction & 0x1F0000, 16);
 }
 
 int getRD(int instruction) {
-  //hw4
-  return rightShift(instruction << 16, 27);
+  //hw5
+  return rightShift(instruction & 0xF800, 11);
 }
 
 // hw3
 int getShamt(int instruction){
-	//hw4
-	return rightShift(instruction << 21, 27);
+	//hw5
+	return rightShift(instruction & 0x7C0, 6);
 }
 
 int getFunction(int instruction) {
-  //hw4
-  return rightShift(instruction << 26, 26);
+  //hw5
+  return instruction & 0x3F;
 }
 
 int getImmediate(int instruction) {
-  //hw4
-  return rightShift(instruction << 16, 16);
+  //hw5
+  return instruction & 0xFFFF;
 }
 
 int getInstrIndex(int instruction) {
-  //hw4
-  return rightShift(instruction << 6, 6);
+  //hw5
+  return instruction & 0x3FFFFFF;
 }
 
 int signExtend(int immediate) {
@@ -4445,7 +4571,7 @@ void decodeRFormat() {
   rt          = getRT(ir);
   rd          = getRD(ir);
   // hw3
-  shamt		  = getShamt(ir);
+  shamt		    = getShamt(ir);
   immediate   = 0;
   function    = getFunction(ir);
   instr_index = 0;
@@ -5842,7 +5968,7 @@ void fct_sllv(){
 		    print((int*) ", ");
 		    printRegister(rs);
 		    print((int*) "=");
-		    printBinary(*(registers+rs), 0);
+		    printInteger(*(registers+rs));
     	}
 	}
 
@@ -5880,7 +6006,7 @@ void fct_srlv(){
 		    print((int*) ", ");
 		    printRegister(rs);
 		    print((int*) "=");
-		    printBinary(*(registers+rs), 0);
+		    printInteger(*(registers+rs));
     	}
 	}
 
@@ -6510,6 +6636,202 @@ void op_sw() {
   }
 }
 
+//hw5 start
+void fct_and(){
+  if(debug){
+    printFunction(function);
+    print((int*) " ");
+    printRegister(rd);
+    print((int*) ",");
+    printRegister(rs);
+    print((int*) ",");
+    printRegister(rt);
+    if (interpret) {
+        print((int*) ": ");
+        printRegister(rs);
+        print((int*) "=");
+        printBinary(*(registers+rs), 0);
+        print((int*) ",");
+        printRegister(rt);
+        print((int*) "=");
+        printBinary(*(registers+rt), 0);
+      }
+  }
+
+  if(interpret){
+    *(registers+rd) = *(registers+rt) & *(registers+rs);
+
+      pc = pc + WORDSIZE;
+  }
+
+  if (debug) {
+    if (interpret) {
+      print((int*) " -> ");
+      printRegister(rd);
+      print((int*) "=");
+      printBinary(*(registers+rd), 0);
+    }
+    println();
+  }
+}
+
+void fct_or(){
+  if(debug){
+    printFunction(function);
+    print((int*) " ");
+    printRegister(rd);
+    print((int*) ",");
+    printRegister(rs);
+    print((int*) ",");
+    printRegister(rt);
+    if (interpret) {
+        print((int*) ": ");
+        printRegister(rs);
+        print((int*) "=");
+        printBinary(*(registers+rs), 0);
+        print((int*) ",");
+        printRegister(rt);
+        print((int*) "=");
+        printBinary(*(registers+rt), 0);
+      }
+  }
+
+  if(interpret){
+    *(registers+rd) = *(registers+rt) | *(registers+rs);
+
+      pc = pc + WORDSIZE;
+  }
+
+  if (debug) {
+    if (interpret) {
+      print((int*) " -> ");
+      printRegister(rd);
+      print((int*) "=");
+      printBinary(*(registers+rd), 0);
+    }
+    println();
+  }
+}
+
+void fct_nor(){
+  if(debug){
+    printFunction(function);
+    print((int*) " ");
+    printRegister(rd);
+    print((int*) ",");
+    printRegister(rs);
+    print((int*) ",");
+    printRegister(rt);
+    if (interpret) {
+        print((int*) ": ");
+        printRegister(rs);
+        print((int*) "=");
+        printBinary(*(registers+rs), 0);
+        print((int*) ",");
+        printRegister(rt);
+        print((int*) "=");
+        printBinary(*(registers+rt), 0);
+      }
+  }
+
+  if(interpret){
+    *(registers+rd) = ~(*(registers+rt) | *(registers+rs));
+
+      pc = pc + WORDSIZE;
+  }
+
+  if (debug) {
+    if (interpret) {
+      print((int*) " -> ");
+      printRegister(rd);
+      print((int*) "=");
+      printBinary(*(registers+rd), 0);
+    }
+    println();
+  }
+}
+
+void op_andi(){
+  if (debug) {
+    printOpcode(opcode);
+    print((int*) " ");
+    printRegister(rt);
+    print((int*) ",");
+    printRegister(rs);
+    print((int*) ",");
+    printInteger(signExtend(immediate));
+    if (interpret) {
+      print((int*) ": ");
+      printRegister(rt);
+      print((int*) "=");
+      printInteger(*(registers+rt));
+      print((int*) ", ");
+      printRegister(rs);
+      print((int*) "=");
+      printInteger(*(registers+rs));
+    }
+  }
+
+  if (interpret) {
+    *(registers+rt) = *(registers+rs) & signExtend(immediate);
+
+    // TODO: check for overflow
+
+    pc = pc + WORDSIZE;
+  }
+
+  if (debug) {
+    if (interpret) {
+      print((int*) " -> ");
+      printRegister(rt);
+      print((int*) "=");
+      printInteger(*(registers+rt));
+    }
+    println();
+  }
+}
+
+void op_ori(){
+  if (debug) {
+    printOpcode(opcode);
+    print((int*) " ");
+    printRegister(rt);
+    print((int*) ",");
+    printRegister(rs);
+    print((int*) ",");
+    printInteger(signExtend(immediate));
+    if (interpret) {
+      print((int*) ": ");
+      printRegister(rt);
+      print((int*) "=");
+      printInteger(*(registers+rt));
+      print((int*) ",");
+      printRegister(rs);
+      print((int*) "=");
+      printInteger(*(registers+rs));
+    }
+  }
+
+  if (interpret) {
+    *(registers+rt) = *(registers+rs) | signExtend(immediate);
+
+    // TODO: check for overflow
+
+    pc = pc + WORDSIZE;
+  }
+
+  if (debug) {
+    if (interpret) {
+      print((int*) " -> ");
+      printRegister(rt);
+      print((int*) "=");
+      printInteger(*(registers+rt));
+    }
+    println();
+  }
+}
+//hw5 end
+
 // -----------------------------------------------------------------
 // -------------------------- INTERPRETER --------------------------
 // -----------------------------------------------------------------
@@ -6607,7 +6929,15 @@ void execute() {
       fct_sllv();
     else if (function == FCT_SRLV)
       fct_srlv();
-    // hw3
+    // hw3 end
+    //hw5 start
+    else if (function == FCT_AND)
+      fct_and();
+    else if (function == FCT_OR)
+      fct_or();
+    else if (function == FCT_NOR)
+      fct_nor();
+    //hw5 end
     else if (function == FCT_ADDU)
       fct_addu();
     else if (function == FCT_SUBU)
@@ -6642,6 +6972,12 @@ void execute() {
     op_jal();
   else if (opcode == OP_J)
     op_j();
+  //hw5 start
+  else if (opcode == OP_ANDI)
+    op_andi();
+  else if (opcode == OP_ORI)
+    op_ori();
+  //hw5 end
   else
     throwException(EXCEPTION_UNKNOWNINSTRUCTION, 0);
 }
