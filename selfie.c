@@ -4517,28 +4517,28 @@ int getOpcode(int instruction) {
 
 int getRS(int instruction) {
   //hw5
-  return rightShift(instruction & 0x3E00000, 21);
+  return rightShift(instruction, 21) & 0b11111;
 }
 
 int getRT(int instruction) {
   //hw5
-  return rightShift(instruction & 0x1F0000, 16);
+  return rightShift(instruction, 16) & 0b11111;
 }
 
 int getRD(int instruction) {
   //hw5
-  return rightShift(instruction & 0xF800, 11);
+  return rightShift(instruction, 11) & 0b11111;
 }
 
 // hw3
 int getShamt(int instruction){
 	//hw5
-	return rightShift(instruction & 0x7C0, 6);
+	return rightShift(instruction, 6) & 0b11111;
 }
 
 int getFunction(int instruction) {
   //hw5
-  return instruction & 0x3F;
+  return instruction & 0b111111;
 }
 
 int getImmediate(int instruction) {
