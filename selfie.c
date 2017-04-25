@@ -2643,6 +2643,10 @@ int lookForFactor() {
     return 0;
   else if (symbol == SYM_EOF)
     return 0;
+  //hw5 start
+  else if (symbol == SYM_NOT_BITW)
+    return 0;
+  //hw5 end
   else
     return 1;
 }
@@ -3108,7 +3112,30 @@ int gr_factor() {
     emitIFormat(OP_LW, currentTemporary(), currentTemporary(), 0);
 
     type = INT_T;
+    //hw5 start
+    //not?
+  } else if(symbol == SYM_NOT_BITW){
+    getSymbol();
 
+    if(symbol == SYM_IDENTIFIER){
+      type = load_variable(identifier);
+
+      getSymbol();
+    // * "(" expression ")"
+    } else if (symbol == SYM_LPARENTHESIS) {
+      getSymbol();
+
+      type = gr_expression();
+        if (symbol == SYM_RPARENTHESIS)
+        getSymbol();
+      else
+        syntaxErrorSymbol(SYM_RPARENTHESIS);
+    } else
+      syntaxErrorUnexpected();
+
+    emitRFormat(OP_SPECIAL, currentTemporary(), 0, currentTemporary(), FCT_NOR);
+
+  //hw5 ende
   // identifier?
   } else if (symbol == SYM_IDENTIFIER) {
     variableOrProcedureName = identifier;
@@ -3257,8 +3284,6 @@ int gr_shiftExpression(){
 
 int gr_simpleExpression() {
   int sign;
-  //hw5
-  int not;
   int ltype;
   int operatorSymbol;
   int rtype;
@@ -3266,17 +3291,8 @@ int gr_simpleExpression() {
   // assert: n = allocatedTemporaries
 
   // optional: -
-  //hw5 start
-  if(symbol== SYM_NOT_BITW){
-    not=1;
-    sign=0;
-    getSymbol();
-    //hw5 end
-  }else if (symbol == SYM_MINUS) {
+  if (symbol == SYM_MINUS) {
       sign = 1;
-
-      //hw5
-      not=0;
 
       mayBeINTMIN = 1;
       isINTMIN    = 0;
@@ -3293,8 +3309,6 @@ int gr_simpleExpression() {
         sign = 0;
       }
   }else{
-    //hw5
-    not=0;
     sign=0;
   }
 
@@ -3312,12 +3326,6 @@ int gr_simpleExpression() {
 
     emitRFormat(OP_SPECIAL, REG_ZR, currentTemporary(), currentTemporary(), FCT_SUBU);
   }
-
-  //hw5 start
-  if(not){
-    emitRFormat(OP_SPECIAL, currentTemporary(), REG_ZR, currentTemporary(), FCT_NOR);
-  }
-  //hw5 end
 
   // + or -?
   while (isPlusOrMinus()) {
