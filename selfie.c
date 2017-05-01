@@ -3196,8 +3196,6 @@ int gr_factor() {
 
   // integer?
   } else if (symbol == SYM_INTEGER) {
-    //hw6 load_integer(literal);
-
     //hw6 start
     value=literal;
     valueAvailable=1;
@@ -4847,23 +4845,23 @@ int getOpcode(int instruction) {
 
 int getRS(int instruction) {
   //hw6 
-  return rightShift( instruction & 0x3E00000, 32-(6+5) );
+  return rightShift( instruction, 32-(6+5) ) & 0b11111;
 }
 
 int getRT(int instruction) {
   //hw5
-  return rightShift(instruction, 16) & 0b11111;
+  return rightShift(instruction, 32-(6+2*5)) & 0b11111;
 }
 
 int getRD(int instruction) {
   //hw5
-  return rightShift(instruction, 11) & 0b11111;
+  return rightShift(instruction, 32-(6+3*5)) & 0b11111;
 }
 
 // hw3
 int getShamt(int instruction){
 	//hw5
-	return rightShift(instruction, 6) & 0b11111;
+	return rightShift(instruction, 32-(6+4*5)) & 0b11111;
 }
 
 int getFunction(int instruction) {
