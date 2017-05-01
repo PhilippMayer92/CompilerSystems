@@ -582,6 +582,9 @@ int numberOfAssignments = 0;
 int numberOfWhile       = 0;
 int numberOfIf          = 0;
 int numberOfReturn      = 0;
+//hw6
+int value           = 0;
+int valueAvailable  = 0;
 
 // ------------------------- INITIALIZATION ------------------------
 
@@ -591,6 +594,9 @@ void resetParser() {
   numberOfWhile       = 0;
   numberOfIf          = 0;
   numberOfReturn      = 0;
+  //hw6
+  value               = 0;
+  valueAvailable      = 0;
 }
 
 // -----------------------------------------------------------------
@@ -859,8 +865,8 @@ int* touch(int* memory, int length);
 void selfie_load();
 
 // ------------------------ GLOBAL CONSTANTS -----------------------
-
-int maxBinaryLength = 131072; // 128KB
+//hw6
+int maxBinaryLength = 262144; // 128KB
 
 // ------------------------ GLOBAL VARIABLES -----------------------
 
@@ -2180,7 +2186,7 @@ void getSymbol() {
 	    while (isHexadecimalDigit()) {
 	        if (i >= maxIntegerLength) {
 	            syntaxErrorMessage((int*) "integer out of bound");
-
+              
 	            exit(-1);
 	        }
 
@@ -2211,7 +2217,7 @@ void getSymbol() {
               isINTMIN = 1;
             else {
               syntaxErrorMessage((int*) "integer out of bound");
-
+              
               exit(-1);
             }
           } else {
@@ -2695,7 +2701,7 @@ int currentTemporary() {
     return allocatedTemporaries + REG_A3;
   else {
     syntaxErrorMessage((int*) "illegal register access");
-
+    
     exit(-1);
   }
 }
@@ -2705,10 +2711,22 @@ int previousTemporary() {
     return currentTemporary() - 1;
   else {
     syntaxErrorMessage((int*) "illegal register access");
-
+  
     exit(-1);
   }
 }
+
+//hw6 start
+int previousPreviousTemporary() {
+  if (allocatedTemporaries > 2)
+    return currentTemporary() - 2;
+  else {
+    syntaxErrorMessage((int*) "illegal register access");
+  
+    exit(-1);
+  }
+}
+//hw6 end
 
 int nextTemporary() {
   if (allocatedTemporaries < REG_T7 - REG_A3)
@@ -2830,8 +2848,21 @@ int load_variable(int* variable) {
 
 void load_integer(int value) {
   // assert: value >= 0 or value == INT_MIN
+  //hw6
+  int signChanged;
 
   talloc();
+
+  //hw6 start
+  if(value<0){
+    if(value!=INT_MIN){
+      value=-value;
+      signChanged=1;
+    }else
+      signChanged=0;
+  }else
+    signChanged=0;
+  //hw6 end
 
   if (value >= 0) {
     if (value < twoToThePowerOf(15))
@@ -2845,7 +2876,7 @@ void load_integer(int value) {
       emitLeftShiftBy(14);
 
       // and finally add 14 lsbs
-      emitIFormat(OP_ADDIU, currentTemporary(), currentTemporary(), rightShift(value << 18, 18));
+      emitIFormat(OP_ADDIU, currentTemporary(), currentTemporary(), rightShift((value << 18), 18));
     } else {
       // load 14 msbs of a 31-bit number first
       emitIFormat(OP_ADDIU, REG_ZR, currentTemporary(), rightShift(value, 17));
@@ -2853,23 +2884,27 @@ void load_integer(int value) {
       emitLeftShiftBy(14);
 
       // then add the next 14 msbs
-      //hw4
-      emitIFormat(OP_ADDIU, currentTemporary(), currentTemporary(), rightShift(value << 15, 18));
+      emitIFormat(OP_ADDIU, currentTemporary(), currentTemporary(), rightShift((value << 15), 18));
 
       emitLeftShiftBy(3);
 
       // and finally add the remaining 3 lsbs
-      //hw4
-      emitIFormat(OP_ADDIU, currentTemporary(), currentTemporary(), rightShift(value << 29, 29));
+      emitIFormat(OP_ADDIU, currentTemporary(), currentTemporary(), rightShift((value << 29), 29));
     }
-  } else {
+  } else if (value == INT_MIN) {
     // load largest positive 16-bit number with a single bit set: 2^14
     emitIFormat(OP_ADDIU, REG_ZR, currentTemporary(), twoToThePowerOf(14));
 
     // and then multiply 2^14 by 2^14*2^3 to get to 2^31 == INT_MIN
     emitLeftShiftBy(14);
     emitLeftShiftBy(3);
+  } 
+
+  //hw6 start
+  if(signChanged){
+    emitRFormat(OP_SPECIAL, REG_ZR, currentTemporary(), currentTemporary(), FCT_SUBU);
   }
+  //hw6 end
 }
 
 void load_string(int* string) {
@@ -3034,11 +3069,10 @@ int gr_factor() {
   int hasCast;
   int cast;
   int type;
-
+  
   int* variableOrProcedureName;
 
   // assert: n = allocatedTemporaries
-
   hasCast = 0;
 
   type = INT_T;
@@ -3162,7 +3196,12 @@ int gr_factor() {
 
   // integer?
   } else if (symbol == SYM_INTEGER) {
-    load_integer(literal);
+    //hw6 load_integer(literal);
+
+    //hw6 start
+    value=literal;
+    valueAvailable=1;
+    //hw6 end
 
     getSymbol();
 
@@ -3200,7 +3239,6 @@ int gr_factor() {
     syntaxErrorUnexpected();
 
   // assert: allocatedTemporaries == n + 1
-
   if (hasCast)
     return cast;
   else
@@ -3211,11 +3249,23 @@ int gr_term() {
   int ltype;
   int operatorSymbol;
   int rtype;
-
+  //hw6 start
+  int firstValue;
+  int firstValueAvailable;
+  int variableFound;
+  //hw6 end
   // assert: n = allocatedTemporaries
 
   ltype = gr_factor();
-
+  //hw6 start
+  firstValue=value;
+  firstValueAvailable=valueAvailable;
+  valueAvailable=0;
+  if(firstValueAvailable)
+    variableFound=0;
+  else
+    variableFound=1;
+  //hw6 end
   // assert: allocatedTemporaries == n + 1
 
   // * / or % ?
@@ -3231,26 +3281,170 @@ int gr_term() {
     if (ltype != rtype)
       typeWarning(ltype, rtype);
 
+    //hw6 start
     if (operatorSymbol == SYM_ASTERISK) {
+      if(firstValueAvailable){
+        //there was a value found before
+        if(valueAvailable){
+          firstValue=firstValue*value;
+          valueAvailable=0;
+        }else{
+          if(variableFound){
+            //right operand is the second variable found
+            emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), 0, FCT_MULTU);
+            emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFLO);
+            tfree(1);
+          }else{
+            //right operand is the first variable found
+            variableFound=1;
+          }
+        }
+      }else{
+        //no value found yet
+        if(valueAvailable){
+          firstValueAvailable=1;
+          firstValue=value;
+          valueAvailable=0;
+        }else{
+          //right operand is a variable
+          if(variableFound){
+            //there was a variable found before
+            emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), 0, FCT_MULTU);
+            emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFLO);
+            tfree(1);
+          }else{
+            //first found variable
+            variableFound=1;
+          }
+        }
+      }
+    } else if (operatorSymbol == SYM_DIV) {
+      //attention: division must be done immediatelly because of integer division
+      if(variableFound){
+        if(firstValueAvailable){
+          //so it's necessary to multiply former values and variables before devision
+          load_integer(firstValue);
+          firstValueAvailable=0;
+          if(valueAvailable){
+            load_integer(value);
+            valueAvailable=0;
+            emitRFormat(OP_SPECIAL, previousPreviousTemporary(), previousTemporary(), 0, FCT_MULTU);
+            emitRFormat(OP_SPECIAL, 0, 0, previousPreviousTemporary(), FCT_MFLO);
+            //attention: divisor lays at register n-2
+            emitRFormat(OP_SPECIAL, previousPreviousTemporary(), currentTemporary(), 0, FCT_DIVU);
+            emitRFormat(OP_SPECIAL, 0, 0, previousPreviousTemporary(), FCT_MFLO);
+            tfree(2);
+          }else{
+            //attention: divisor was loaded into register before dividend
+            emitRFormat(OP_SPECIAL, previousPreviousTemporary(), currentTemporary(), 0, FCT_MULTU);
+            emitRFormat(OP_SPECIAL, 0, 0, previousPreviousTemporary(), FCT_MFLO);
+            tfree(1);
+            emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), 0, FCT_DIVU);
+            emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFLO);
+            tfree(1);
+          }
+        }else{
+          if(valueAvailable){
+            load_integer(value);
+            valueAvailable=0; 
+          }
+          emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), 0, FCT_DIVU);
+          emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFLO);
+          tfree(1);
+        }
+      }else{
+        //if no variable is found, the first factor must have been a constant, so firstValue is available for sure
+        if(valueAvailable){
+          firstValue=firstValue/value;
+          valueAvailable=0;
+        }else{
+          load_integer(firstValue);
+          firstValueAvailable=0;
+          variableFound=1;
+          //attention: divisor was loaded into register before dividend
+          emitRFormat(OP_SPECIAL, currentTemporary(), previousTemporary(), 0, FCT_DIVU);
+          emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFLO);
+          tfree(1);
+        }
+      }
+    } else if (operatorSymbol == SYM_MOD) {
+      //attention: modulo must be done immediatelly because of integer devision
+      if(variableFound){
+        if(firstValueAvailable){
+          //so it's necessary to multiply former values and variables before devision
+          load_integer(firstValue);
+          firstValueAvailable=0;
+          if(valueAvailable){
+            load_integer(value);
+            valueAvailable=0;
+            emitRFormat(OP_SPECIAL, previousPreviousTemporary(), previousTemporary(), 0, FCT_MULTU);
+            emitRFormat(OP_SPECIAL, 0, 0, previousPreviousTemporary(), FCT_MFLO);
+            //attention: divisor lays at register n-2
+            emitRFormat(OP_SPECIAL, previousPreviousTemporary(), currentTemporary(), 0, FCT_DIVU);
+            emitRFormat(OP_SPECIAL, 0, 0, previousPreviousTemporary(), FCT_MFHI);
+            tfree(2);
+          }else{
+            //attention: divisor was loaded into register before dividend
+            emitRFormat(OP_SPECIAL, previousPreviousTemporary(), currentTemporary(), 0, FCT_MULTU);
+            emitRFormat(OP_SPECIAL, 0, 0, previousPreviousTemporary(), FCT_MFLO);
+            tfree(1);
+            emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), 0, FCT_DIVU);
+            emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFHI);
+            tfree(1);
+          }
+        }else{
+          if(valueAvailable){
+            load_integer(value);
+            valueAvailable=0; 
+          }
+          emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), 0, FCT_DIVU);
+          emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFHI);
+          tfree(1);
+        }
+      }else{
+        //if no variable is found, the first factor must have been a constant, so firstValue is available for sure
+        if(valueAvailable){
+          firstValue=firstValue%value;
+          valueAvailable=0;
+        }else{
+          load_integer(firstValue);
+          firstValueAvailable=0;
+          variableFound=1;
+          //attention: divisor was loaded into register before dividend
+          emitRFormat(OP_SPECIAL, currentTemporary(), previousTemporary(), 0, FCT_DIVU);
+          emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFHI);
+          tfree(1);
+        }
+      }
+    }
+  }
+  //if firstValue is still available and a variable was found, it's necessary to compute the result of the whole calculation.
+  if(firstValueAvailable){
+    if(variableFound){
+      load_integer(firstValue);
+      firstValueAvailable=0;
       emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), 0, FCT_MULTU);
       emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFLO);
-
-    } else if (operatorSymbol == SYM_DIV) {
-      emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), 0, FCT_DIVU);
-      emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFLO);
-
-    } else if (operatorSymbol == SYM_MOD) {
-      emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), 0, FCT_DIVU);
-      emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFHI);
+      tfree(1);
+    }else{
+      value=firstValue;
+      valueAvailable=1;
     }
-
-    tfree(1);
   }
+  //hw6 end
 
   // assert: allocatedTemporaries == n + 1
-
   return ltype;
 }
+
+//hw6 start
+void checkpoint(int nr){
+  print((int*) "checkpoint ");
+  printInteger(nr);
+  print((int*) " reached");
+  println();
+}
+//hw6 end
 
 //hw4 start
 int gr_shiftExpression(){
@@ -3287,6 +3481,11 @@ int gr_simpleExpression() {
   int ltype;
   int operatorSymbol;
   int rtype;
+  //hw6 start
+  int firstValue;
+  int firstValueAvailable;
+  int variableFound;
+  //hw6 end
 
   // assert: n = allocatedTemporaries
 
@@ -3314,7 +3513,19 @@ int gr_simpleExpression() {
 
   ltype = gr_term();
 
-  
+  //hw6 start
+  if(valueAvailable){
+    variableFound=0;
+    firstValueAvailable=1;
+    firstValue=value;
+    valueAvailable=0;
+  }else{
+    variableFound=1;
+    firstValue=0;
+    firstValueAvailable=0;
+  }
+  //hw6 end
+
   // assert: allocatedTemporaries == n + 1
 
   if (sign) {
@@ -3323,40 +3534,151 @@ int gr_simpleExpression() {
 
       ltype = INT_T;
     }
-
-    emitRFormat(OP_SPECIAL, REG_ZR, currentTemporary(), currentTemporary(), FCT_SUBU);
+    //hw6 start
+    if(firstValueAvailable){
+      firstValue=-firstValue;
+    }else{
+      emitRFormat(OP_SPECIAL, REG_ZR, currentTemporary(), currentTemporary(), FCT_SUBU);
+    }
+    //hw6 end
   }
-
   // + or -?
   while (isPlusOrMinus()) {
     operatorSymbol = symbol;
 
     getSymbol();
-
     rtype = gr_term();
 
     // assert: allocatedTemporaries == n + 2
 
     if (operatorSymbol == SYM_PLUS) {
       if (ltype == INTSTAR_T) {
-        if (rtype == INT_T)
+        if (rtype == INT_T){
           // pointer arithmetic: factor of 2^2 of integer operand
-          emitLeftShiftBy(2);
-      } else if (rtype == INTSTAR_T)
-        //fehler?
-        typeWarning(ltype, rtype);
+          //hw6 start
+          if(valueAvailable){
+            value=value*4;
+            //check for integer overflow
+            if((INT_MAX-firstValue)<value){
+              if(variableFound){
+                //force calculation of former summands to avoid integer overflow
+                load_integer(firstValue);
+                emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_ADDU);
+                tfree(1);
+                firstValue=value;
+              }else{
+                syntaxErrorMessage((int*) "sum of integer literals out of bound");
+                exit(-1);
+              }
+            }else{
+              firstValue=firstValue+value;
+              firstValueAvailable=1;
+            }
+            valueAvailable=0;
+          }else{
+            emitLeftShiftBy(2);
+            if(variableFound){
+              emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_ADDU);
+              tfree(1);
+            }else{
+              variableFound=1;
+            }
+          }
+          //hw6 end
+        }
+      } else{ 
+        if (rtype == INTSTAR_T)
+          //fehler?
+          typeWarning(ltype, rtype);
 
-      emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_ADDU);
+        //hw6 start
+        if(valueAvailable){
+          if(firstValueAvailable){
+            //check for integer overflow
+            if((INT_MAX-firstValue)<value){
+              if(variableFound){
+                //force calculation of former summands to avoid integer overflow
+                load_integer(firstValue);
+                emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_ADDU);
+                tfree(1);
+                firstValue=value;
+              }else{
+                syntaxErrorMessage((int*) "sum of integer literals out of bound");
+                exit(-1);
+              }
+            }else{
+              firstValue=firstValue+value;
+            }
+          }else{
+            firstValueAvailable=1;
+            firstValue=value;  
+          }
+          valueAvailable=0;
+        }else{
+          if(variableFound){
+            emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_ADDU);
+            tfree(1);
+          }else{
+            variableFound=1;
+          }
+        }
+      }
+      //hw6 end
 
     } else if (operatorSymbol == SYM_MINUS) {
       if (ltype != rtype)
         typeWarning(ltype, rtype);
 
-      emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_SUBU);
+      //hw6 start
+      if(valueAvailable){
+        if(firstValueAvailable){
+          //check for integer overflow
+          if(firstValue<(INT_MIN+value)){
+            if(variableFound){
+              //force calculation of former summands to avoid integer overflow
+              load_integer(firstValue);
+              emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_ADDU);
+              tfree(1);
+              firstValue=-value;
+            }else{
+              syntaxErrorMessage((int*) "sum of integer literals out of bound");
+              exit(-1);
+            }
+          }else{
+            firstValue=firstValue-value;
+          }
+        }else{
+          firstValue=-value;
+          firstValueAvailable=1;
+        }
+        valueAvailable=0;
+      }else{
+        if(variableFound){
+          emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_SUBU);
+        }else{
+          //attention: reversed order of operands
+          variableFound=1;
+          load_integer(firstValue);
+          firstValueAvailable=0;
+          emitRFormat(OP_SPECIAL, currentTemporary(), previousTemporary(), previousTemporary(), FCT_SUBU);
+        }
+        tfree(1);
+      }
+      //hw6 end
     }
-
-    tfree(1);
   }
+
+  //hw6 start
+  //if firstValue is still available and a variable was found, it's necessary to compute the result of the whole calculation.
+  if(firstValueAvailable){
+    load_integer(firstValue);
+    firstValueAvailable=0;
+    if(variableFound){
+      emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_ADDU);
+      tfree(1);
+    }
+  }
+  //hw6 end
 
   // assert: allocatedTemporaries == n + 1
 
@@ -4524,8 +4846,8 @@ int getOpcode(int instruction) {
 }
 
 int getRS(int instruction) {
-  //hw5
-  return rightShift(instruction, 21) & 0b11111;
+  //hw6 
+  return rightShift( instruction & 0x3E00000, 32-(6+5) );
 }
 
 int getRT(int instruction) {
