@@ -3015,6 +3015,13 @@ int gr_call(int* procedure) {
   if (isExpression()) {
     gr_expression();
 
+    //hw6 start
+    if(valueAvailable){
+      load_integer(value);
+      valueAvailable=0;
+    }
+    //hw6 end
+
     // TODO: check if types/number of parameters is correct
 
     // push first parameter onto stack
@@ -3027,6 +3034,13 @@ int gr_call(int* procedure) {
       getSymbol();
 
       gr_expression();
+
+      //hw6 start
+      if(valueAvailable){
+        load_integer(value);
+        valueAvailable=0;
+      }
+      //hw6 end
 
       // push more parameters onto stack
       emitIFormat(OP_ADDIU, REG_SP, REG_SP, -WORDSIZE);
@@ -3132,6 +3146,13 @@ int gr_factor() {
 
       type = gr_expression();
 
+      //hw6 start
+      if(valueAvailable){
+        load_integer(value);
+        valueAvailable=0;
+      }
+      //hw6 end
+
       if (symbol == SYM_RPARENTHESIS)
         getSymbol();
       else
@@ -3160,7 +3181,15 @@ int gr_factor() {
       getSymbol();
 
       type = gr_expression();
-        if (symbol == SYM_RPARENTHESIS)
+
+      //hw6 start
+      if(valueAvailable){
+        load_integer(value);
+        valueAvailable=0;
+      }
+      //hw6 end
+      
+      if (symbol == SYM_RPARENTHESIS)
         getSymbol();
       else
         syntaxErrorSymbol(SYM_RPARENTHESIS);
@@ -3449,27 +3478,66 @@ int gr_shiftExpression(){
 	int operatorSymbol;
 	int ltype;
 	int rtype;
+  //hw6 start
+  int firstValue;
+  int firstValueAvailable;
+  int singleOperand;
+  //hw6 end
 
 	ltype = gr_simpleExpression();
 
+  //hw6 start
+  singleOperand=1;
+  firstValueAvailable=0;
+  if(valueAvailable){
+    firstValueAvailable=1;
+    firstValue=value;
+    valueAvailable=0;
+  }
+  //hw6 end
 	while(isShift()){
 		operatorSymbol = symbol;
+    //hw6 start
+    if(singleOperand){
+      if(firstValueAvailable){
+        load_integer(firstValue);
+        firstValueAvailable=0;
+      }
+    }
+    singleOperand=0;
+    //hw6 end
 
-    	getSymbol();
+    getSymbol();
 
-    	rtype = gr_simpleExpression();
+    rtype = gr_simpleExpression();
 
-    	if(rtype != INT_T){
-    		typeWarning(INT_T, rtype);
-    	}
+    //hw6 start
+    if(valueAvailable){
+      load_integer(value);
+      valueAvailable=0;
+    }
+    //hw6 end
 
-    	if(operatorSymbol == SYM_LEFTSHIFT){
-    		emitRFormat(OP_SPECIAL, currentTemporary(), previousTemporary(), previousTemporary(), FCT_SLLV);
-    	} else if(operatorSymbol == SYM_RIGHTSHIFT){
-    		emitRFormat(OP_SPECIAL, currentTemporary(), previousTemporary(), previousTemporary(), FCT_SRLV);
-    	}
-    	tfree(1);
+    if(rtype != INT_T){
+    	typeWarning(INT_T, rtype);
+    }
+
+    if(operatorSymbol == SYM_LEFTSHIFT){
+    	emitRFormat(OP_SPECIAL, currentTemporary(), previousTemporary(), previousTemporary(), FCT_SLLV);
+    } else if(operatorSymbol == SYM_RIGHTSHIFT){
+    	emitRFormat(OP_SPECIAL, currentTemporary(), previousTemporary(), previousTemporary(), FCT_SRLV);
+    }
+    tfree(1);
 	}
+  //hw6 start
+  if(singleOperand){
+    if(firstValueAvailable){
+      valueAvailable=1;
+      value=firstValue;
+      firstValueAvailable=0;
+    }
+  }
+  //hw6 end
 	return ltype;
 }
 //hw4 ende
@@ -3669,12 +3737,15 @@ int gr_simpleExpression() {
   //hw6 start
   //if firstValue is still available and a variable was found, it's necessary to compute the result of the whole calculation.
   if(firstValueAvailable){
-    load_integer(firstValue);
-    firstValueAvailable=0;
     if(variableFound){
+      load_integer(firstValue);
       emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_ADDU);
       tfree(1);
+    }else{
+      value=firstValue;
+      valueAvailable=1;
     }
+    firstValueAvailable=0;
   }
   //hw6 end
 
@@ -3688,15 +3759,47 @@ int gr_expression(){
   int ltype;
   int rtype;
   int operatorSymbol;
+  //hw6 start
+  int firstValue;
+  int firstValueAvailable;
+  int singleOperand;
+  //hw6 end
 
   ltype=gr_compExpression();
+
+  //hw6 start
+  singleOperand=1;
+  firstValueAvailable=0;
+  if(valueAvailable){
+    firstValueAvailable=1;
+    firstValue=value;
+    valueAvailable=0;
+  }
+  //hw6 end
 
   while(isAndOrOr()){
     operatorSymbol=symbol;
 
+    //hw6 start
+    if(singleOperand){
+      if(firstValueAvailable){
+        load_integer(firstValue);
+        firstValueAvailable=0;
+      }
+    }
+    singleOperand=0;
+    //hw6 end
+
     getSymbol();
 
     rtype=gr_compExpression();
+
+    //hw6 start
+    if(valueAvailable){
+      load_integer(value);
+      valueAvailable=0;
+    }
+    //hw6 end
 
     if(operatorSymbol==SYM_AND_BITW){
       emitRFormat(OP_SPECIAL, currentTemporary(), previousTemporary(), previousTemporary(), FCT_AND);
@@ -3707,6 +3810,16 @@ int gr_expression(){
     tfree(1);
   }
 
+  //hw6 start
+  if(singleOperand){
+    if(firstValueAvailable){
+      valueAvailable=1;
+      value=firstValue;
+      firstValueAvailable=0;
+    }
+  }
+  //hw6 end
+
   return ltype;
 }
 //hw5 end
@@ -3716,20 +3829,50 @@ int gr_compExpression() {
   int ltype;
   int operatorSymbol;
   int rtype;
+  //hw6 start
+  int firstValue;
+  int firstValueAvailable;
+  int singleOperand;
+  //hw6 end
 
   // assert: n = allocatedTemporaries
   //hw4 
   ltype = gr_shiftExpression();
 
   // assert: allocatedTemporaries == n + 1
+  //hw6 start
+  singleOperand=1;
+  firstValueAvailable=0;
+  if(valueAvailable){
+    firstValueAvailable=1;
+    firstValue=value;
+    valueAvailable=0;
+  }
+  //hw6 end
 
   //optional: ==, !=, <, >, <=, >= simpleExpression
   if (isComparison()) {
     operatorSymbol = symbol;
+    //hw6 start
+    if(singleOperand){
+      if(firstValueAvailable){
+        load_integer(firstValue);
+        firstValueAvailable=0;
+      }
+    }
+    singleOperand=0;
+    //hw6 end
 
     getSymbol();
     //hw4 
     rtype = gr_shiftExpression();
+
+    //hw6 start
+    if(valueAvailable){
+      load_integer(value);
+      valueAvailable=0;
+    }
+    //hw6 end
 
     // assert: allocatedTemporaries == n + 2
 
@@ -3793,6 +3936,15 @@ int gr_compExpression() {
       emitIFormat(OP_ADDIU, REG_ZR, currentTemporary(), 0);
     }
   }
+  //hw6 start
+  if(singleOperand){
+    if(firstValueAvailable){
+      valueAvailable=1;
+      value=firstValue;
+      firstValueAvailable=0;
+    }
+  }
+  //hw6 end
 
   // assert: allocatedTemporaries == n + 1
 
@@ -3817,6 +3969,12 @@ void gr_while() {
       getSymbol();
 
       gr_expression();
+      //hw6 start
+      if(valueAvailable){
+        load_integer(value);
+        valueAvailable=0;
+      }
+      //hw6 end
 
       // do not know where to branch, fixup later
       brForwardToEnd = binaryLength;
@@ -3880,6 +4038,13 @@ void gr_if() {
       getSymbol();
 
       gr_expression();
+
+      //hw6 start
+      if(valueAvailable){
+        load_integer(value);
+        valueAvailable=0;
+      }
+      //hw6 end
 
       // if the "if" case is not true, we branch to "else" (if provided)
       brForwardToElseOrEnd = binaryLength;
@@ -3971,6 +4136,13 @@ void gr_return() {
   if (symbol != SYM_SEMICOLON) {
     type = gr_expression();
 
+    //hw6 start
+      if(valueAvailable){
+        load_integer(value);
+        valueAvailable=0;
+      }
+      //hw6 end
+
     if (type != returnType)
       typeWarning(returnType, type);
 
@@ -4030,6 +4202,13 @@ void gr_statement() {
 
         rtype = gr_expression();
 
+        //hw6 start
+      if(valueAvailable){
+        load_integer(value);
+        valueAvailable=0;
+      }
+      //hw6 end
+
         if (rtype != INT_T)
           typeWarning(INT_T, rtype);
 
@@ -4055,6 +4234,13 @@ void gr_statement() {
 
       ltype = gr_expression();
 
+      //hw6 start
+      if(valueAvailable){
+        load_integer(value);
+        valueAvailable=0;
+      }
+      //hw6 end
+
       if (ltype != INTSTAR_T)
         typeWarning(INTSTAR_T, ltype);
 
@@ -4066,6 +4252,13 @@ void gr_statement() {
           getSymbol();
 
           rtype = gr_expression();
+
+          //hw6 start
+          if(valueAvailable){
+            load_integer(value);
+            valueAvailable=0;
+          }
+          //hw6 end
 
           if (rtype != INT_T)
             typeWarning(INT_T, rtype);
@@ -4120,6 +4313,13 @@ void gr_statement() {
       getSymbol();
 
       rtype = gr_expression();
+
+      //hw6 start
+      if(valueAvailable){
+        load_integer(value);
+        valueAvailable=0;
+      }
+      //hw6 end
 
       if (ltype != rtype)
         typeWarning(ltype, rtype);
@@ -4845,7 +5045,7 @@ int getOpcode(int instruction) {
 
 int getRS(int instruction) {
   //hw6 
-  return rightShift( instruction, 32-(6+5) ) & 0b11111;
+  return rightShift( instruction, 32-(6+5)) & 0b11111;
 }
 
 int getRT(int instruction) {
