@@ -35,52 +35,52 @@ letter = "a" | ... | "z" | "A" | ... | "Z" .
 C\* Grammar:
 
 ```
-cstar            = { type identifier [ "=" [ cast ] [ "-" ] literal ] ";" |
+cstar               = { type identifier [ "=" [ cast ] [ "-" ] literal ] ";" |
                    ( "void" | type ) identifier procedure } .
 
-type             = "int" [ "*" ] .
+type                = "int" [ "*" ] .
 
-cast             = "(" type ")" .
+cast                = "(" type ")" .
 
-literal          = integer | character .
+literal             = integer | character .
 
-procedure        = "(" [ variable { "," variable } ] ")"
+procedure           = "(" [ variable { "," variable } ] ")"
                     ( ";" | "{" { variable ";" } { statement } "}" ) .
 
-variable         = type identifier .
+variable            = type identifier .
 
-statement        = call ";" | while | if | return ";" |
-                   ( [ "*" ] identifier | "*" "(" expression ")" )
-                     "=" expression ";" .
+statement            = call ";" | while | if | return ";" |
+                       ( [ "*" ] identifier | "*" "(" expression ")" )
+                       "=" expression ";" .
 
-call             = identifier "(" [ expression { "," expression } ] ")" .
+call                = identifier "(" [ expression { "," expression } ] ")" .
 
-expression       = compExpression [ ( "&" | "|" ) compExpression ] .
+expression(v)       = compExpression(v) [ ( "&" | "|" ) compExpression ] .
 
-compExpression   = shiftExpression [ ( "==" | "!=" | "<" | ">" | "<=" | ">=" ) shiftExpression ] .
+compExpression(v)   = shiftExpression(v) [ ( "==" | "!=" | "<" | ">" | "<=" | ">=" ) shiftExpression ] .
 
-shiftExpression  = simpleExpression { ( "<<" | ">>") simpleExpression } .
+shiftExpression(v)  = simpleExpression(v) { ( "<<" | ">>") simpleExpression } .
 
-simpleExpression = [ "-" | "~" ] term { ( "+" | "-" ) term } .
+simpleExpression(v) = [ "-" ] term(v) { ( "+" | "-" ) term(v) } .
 
-term             = factor { ( "*" | "/" | "%" ) factor } .
+term(v)             = factor(v) { ( "*" | "/" | "%" ) factor(v) } .
 
-factor           = [ cast ]
-                    ( [ "*" ] ( identifier | "(" expression ")" ) |
-                      call |
-                      literal |
-                      string ) .
+factor(v)           = [ cast ]
+                     ( [ "*" | "~"] ( identifier | "(" expression(v) ")" ) |
+                        call |
+                       literal(v) |
+                       string ) .
 
-while            = "while" "(" expression ")"
+while               = "while" "(" expression ")"
                              ( statement |
                                "{" { statement } "}" ) .
 
-if               = "if" "(" expression ")"
+if                  = "if" "(" expression ")"
                              ( statement |
                                "{" { statement } "}" )
                          [ "else"
                              ( statement |
                                "{" { statement } "}" ) ] .
 
-return           = "return" [ expression ] .
+return               = "return" [ expression ] .
 ```
