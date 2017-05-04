@@ -3628,9 +3628,13 @@ int gr_simpleExpression() {
             if((INT_MAX-firstValue)<value){
               if(variableFound){
                 //force calculation of former summands to avoid integer overflow
-                load_integer(firstValue);
-                emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_ADDU);
-                tfree(1);
+                if((firstValue<=INT16_MAX)&(firstValue>=INT16_MIN)){
+                  emitIFormat(OP_ADDIU, currentTemporary(), currentTemporary(), firstValue);
+                }else{
+                  load_integer(firstValue);
+                  emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_ADDU);
+                  tfree(1);
+                }
                 firstValue=value;
               }else{
                 syntaxErrorMessage((int*) "sum of integer literals out of bound");
@@ -3664,9 +3668,13 @@ int gr_simpleExpression() {
             if((INT_MAX-firstValue)<value){
               if(variableFound){
                 //force calculation of former summands to avoid integer overflow
-                load_integer(firstValue);
-                emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_ADDU);
-                tfree(1);
+                if((firstValue<=INT16_MAX)&(firstValue>=INT16_MIN)){
+                  emitIFormat(OP_ADDIU, currentTemporary(), currentTemporary(), firstValue);
+                }else{
+                  load_integer(firstValue);
+                  emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_ADDU);
+                  tfree(1);
+                }
                 firstValue=value;
               }else{
                 syntaxErrorMessage((int*) "sum of integer literals out of bound");
@@ -3702,9 +3710,13 @@ int gr_simpleExpression() {
           if(firstValue<(INT_MIN+value)){
             if(variableFound){
               //force calculation of former summands to avoid integer overflow
-              load_integer(firstValue);
-              emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_ADDU);
-              tfree(1);
+              if((firstValue<=INT16_MAX)&(firstValue>=INT16_MIN)){
+                emitIFormat(OP_ADDIU, currentTemporary(), currentTemporary(), firstValue);
+              }else{
+                load_integer(firstValue);
+                emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_ADDU);
+                tfree(1);
+              }
               firstValue=-value;
             }else{
               syntaxErrorMessage((int*) "sum of integer literals out of bound");
@@ -3738,9 +3750,13 @@ int gr_simpleExpression() {
   //if firstValue is still available and a variable was found, it's necessary to compute the result of the whole calculation.
   if(firstValueAvailable){
     if(variableFound){
-      load_integer(firstValue);
-      emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_ADDU);
-      tfree(1);
+      if((firstValue<=INT16_MAX)&(firstValue>=INT16_MIN)){
+        emitIFormat(OP_ADDIU, currentTemporary(), currentTemporary(), firstValue);
+      }else{
+        load_integer(firstValue);
+        emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_ADDU);
+        tfree(1);
+      }
     }else{
       value=firstValue;
       valueAvailable=1;
