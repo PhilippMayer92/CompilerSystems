@@ -3481,13 +3481,11 @@ int gr_shiftExpression(){
   //hw6 start
   int firstValue;
   int firstValueAvailable;
-  int singleOperand;
   //hw6 end
 
 	ltype = gr_simpleExpression();
 
   //hw6 start
-  singleOperand=1;
   firstValueAvailable=0;
   if(valueAvailable){
     firstValueAvailable=1;
@@ -3497,15 +3495,6 @@ int gr_shiftExpression(){
   //hw6 end
 	while(isShift()){
 		operatorSymbol = symbol;
-    //hw6 start
-    if(singleOperand){
-      if(firstValueAvailable){
-        load_integer(firstValue);
-        firstValueAvailable=0;
-      }
-    }
-    singleOperand=0;
-    //hw6 end
 
     getSymbol();
 
@@ -3513,8 +3502,14 @@ int gr_shiftExpression(){
 
     //hw6 start
     if(valueAvailable){
-      load_integer(value);
-      valueAvailable=0;
+      if(value<0|value>31){
+        printLineNumber((int*) "error", lineNumber);
+        print((int*) "unallowed shift of ");
+        printInteger(value);
+        print((int*) "bits");
+        println();
+        exit(-1);
+      }
     }
     //hw6 end
 
@@ -3522,20 +3517,47 @@ int gr_shiftExpression(){
     	typeWarning(INT_T, rtype);
     }
 
-    if(operatorSymbol == SYM_LEFTSHIFT){
-    	emitRFormat(OP_SPECIAL, currentTemporary(), previousTemporary(), previousTemporary(), FCT_SLLV);
-    } else if(operatorSymbol == SYM_RIGHTSHIFT){
-    	emitRFormat(OP_SPECIAL, currentTemporary(), previousTemporary(), previousTemporary(), FCT_SRLV);
+    if(firstValueAvailable){
+      if(valueAvailable){
+        if(operatorSymbol == SYM_LEFTSHIFT){
+          firstValue=firstValue<<value;
+        }else if(operatorSymbol == SYM_RIGHTSHIFT){
+          firstValue=firstValue>>value;
+        }
+        valueAvailable=0;
+      }else{
+        load_integer(firstValue);
+        firstValueAvailable=0;
+        if(operatorSymbol == SYM_LEFTSHIFT){
+          emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_SLLV);
+        } else if(operatorSymbol == SYM_RIGHTSHIFT){
+          emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_SRLV);
+        }
+        tfree(1);
+      }
+    }else{
+      if(valueAvailable){
+        if(operatorSymbol == SYM_LEFTSHIFT){
+          emitRFormatExtended(OP_SPECIAL, 0, currentTemporary(), currentTemporary(), value, FCT_SLL);
+        } else if(operatorSymbol == SYM_RIGHTSHIFT){
+          emitRFormatExtended(OP_SPECIAL, 0, currentTemporary(), currentTemporary(), value, FCT_SRL);
+        }
+        valueAvailable=0;
+      }else{
+        if(operatorSymbol == SYM_LEFTSHIFT){
+          emitRFormat(OP_SPECIAL, currentTemporary(), previousTemporary(), previousTemporary(), FCT_SLLV);
+        } else if(operatorSymbol == SYM_RIGHTSHIFT){
+          emitRFormat(OP_SPECIAL, currentTemporary(), previousTemporary(), previousTemporary(), FCT_SRLV);
+        }
+        tfree(1);
+      }
     }
-    tfree(1);
 	}
   //hw6 start
-  if(singleOperand){
-    if(firstValueAvailable){
-      valueAvailable=1;
-      value=firstValue;
-      firstValueAvailable=0;
-    }
+  if(firstValueAvailable){
+    valueAvailable=1;
+    value=firstValue;
+    firstValueAvailable=0;
   }
   //hw6 end
 	return ltype;
