@@ -521,6 +521,9 @@ void addDimension(int* entry, int size){
   ptr = malloc(2);
   *(ptr + 1) = size;
 }
+void setDimensions(int* entry, int dim)     { *(entry + 8) = dim; }
+void setTotalSize(int* entry, int size)     { *(entry + 10) = size; }
+//hw7 end
 
 // ------------------------ GLOBAL CONSTANTS -----------------------
 
@@ -2507,6 +2510,8 @@ int* createSymbolTableEntry(int whichTable, int* string, int line, int class, in
   setType(newEntry, type);
   setValue(newEntry, value);
   setAddress(newEntry, address);
+  setTotalSize(newEntry, 1);
+  setDimensions(newEntry, 0);
 
   // create entry at head of symbol table
   if (whichTable == GLOBAL_TABLE) {
@@ -4810,7 +4815,33 @@ void gr_cstar() {
           // type identifier "(" ...
           // procedure declaration or definition
           gr_procedure(variableOrProcedureName, type);
-        else {
+        //hw7 start
+        else if(symbol == SYM_LSQRBRACKET){
+          totalSize = 1;
+          dimSize = 0;
+          arrayDeklaration = 1;
+
+          entry = createSymbolTableEntry(GLOBAL_TABLE, variableOrProcedureName, currentLineNumber, ARRAY, type, 0, 0);
+
+          while(symbol == SYM_LSQRBRACKET){
+            dimSize = gr_selector();
+            addDimension(entry, dimSize);
+            totalSize = totalSize * dimSize;
+            getSymbol();
+          }
+          allocatedMemory = allocatedMemory + WORDSIZE * totalSize;
+          setAddress(entry, -allocatedMemory);
+          
+          arrayDeklaration = 0;
+
+          if(symbol != SYM_SEMICOLON){
+            syntaxErrorSymbol(SYM_SEMICOLON);
+
+            exit(-1);
+          }
+          getSymbol();
+          //hw7 end
+        }else {
           currentLineNumber = lineNumber;
 
           if (symbol == SYM_SEMICOLON) {
@@ -4819,24 +4850,7 @@ void gr_cstar() {
             getSymbol();
 
             initialValue = 0;
-          //hw7 start
-          } else if(symbol == SYM_LSQRBRACKET){
-            totalSize = 1;
-            dimSize = 0;
-            arrayDeklaration = 1;
 
-            entry=createSymbolTableEntry(GLOBAL_TABLE, variableOrProcedureName, currentLineNumber, ARRAY, type, 0, 0);
-
-            while(symbol == SYM_LSQRBRACKET){
-              dimSize = gr_selector();
-              addDimension(entry, dimSize);
-              totalSize = totalSize * dimSize;
-            }
-            allocatedMemory = allocatedMemory + WORDSIZE * totalSize;
-            setAddress(entry, -allocatedMemory);
-
-            arrayDeklaration = 0;
-            //hw7 end
           } else
             // type identifier "=" ...
             // global variable definition
@@ -5445,8 +5459,13 @@ void emitGlobalsStrings() {
       storeBinary(binaryLength, getValue(entry));
 
       binaryLength = binaryLength + WORDSIZE;
-    } else if (getClass(entry) == STRING)
+    } else if (getClass(entry) == STRING){
       binaryLength = copyStringToBinary(getString(entry), binaryLength);
+      //hw7 start
+    } else if (getClass(entry) == ARRAY){
+      binaryLength = binaryLength + WORDSIZE * getTotalSize(entry);
+    }
+    //hw7 end
 
     entry = getNextEntry(entry);
   }
