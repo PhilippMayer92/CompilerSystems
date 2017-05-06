@@ -532,7 +532,7 @@ void addDimension(int* entry, int size){
   *(entry + 10) = *(entry + 10) * size;
 
   new = malloc(2);
-  *new = getSizes(entry);
+  *new = (int) getSizes(entry);
   *(new + 1) = size;
 
   setSizes(entry, new);
@@ -4323,25 +4323,30 @@ void gr_statement() {
 
     // "*" identifier
     if (symbol == SYM_IDENTIFIER) {
-      ltype = load_variable(identifier);
-
-      if (ltype != INTSTAR_T)
-        typeWarning(INTSTAR_T, ltype);
+      //hw7 
+      variableOrProcedureName = identifier;
 
       getSymbol();
 
       // "*" identifier "="
       if (symbol == SYM_ASSIGN) {
+        //hw7 start moved from outside of if inside
+        ltype = load_variable(identifier);
+
+        if (ltype != INTSTAR_T)
+          typeWarning(INTSTAR_T, ltype);
+        //hw7 end
+
         getSymbol();
 
         rtype = gr_expression();
 
         //hw6 start
-      if(valueAvailable){
-        load_integer(value);
-        valueAvailable=0;
-      }
-      //hw6 end
+        if(valueAvailable){
+          load_integer(value);
+          valueAvailable=0;
+        }
+        //hw6 end
 
         if (rtype != INT_T)
           typeWarning(INT_T, rtype);
@@ -4351,6 +4356,65 @@ void gr_statement() {
         tfree(2);
 
         numberOfAssignments = numberOfAssignments + 1;
+        //hw7 start
+        //"*" identifier [ selector ] "=" 
+      }else if(symbol == SYM_LSQRBRACKET){
+        entry = global_symbol_table;
+        
+        entry = searchSymbolTable(entry, variableOrProcedureName, ARRAY);
+        
+        ltype = getType(entry);
+        if(ltype != INTSTAR_T){
+          typeWarning(INTSTAR_T, ltype);
+        }
+
+        if((int) entry == 0){
+          printLineNumber((int*) "error", lineNumber);
+          print(variableOrProcedureName);
+          print((int*) " undeclared");
+          println();
+
+          exit(-1);
+        }
+
+        //initialize address register with startaddress of array
+        load_integer(getAddress(entry));
+        emitRFormat(OP_SPECIAL, getScope(entry), currentTemporary(), currentTemporary(), FCT_ADDU);
+
+        selectorNum = 1;
+        while(symbol == SYM_LSQRBRACKET){
+          getSymbol();
+
+          gr_selector(selectorNum, entry);
+
+          selectorNum = selectorNum +1;
+        }
+
+        if(symbol != SYM_ASSIGN){
+          syntaxErrorSymbol(SYM_ASSIGN);
+        }
+        getSymbol();
+
+        rtype = gr_expression();
+
+        if(rtype != INT_T){
+          typeWarning(INT_T, rtype);
+        }
+
+        if(valueAvailable){
+          load_integer(value);
+          valueAvailable = 0;
+        }
+
+        //load pointer from specified array position
+        emitIFormat(OP_LW, previousTemporary(), previousTemporary(), 0);
+
+        //store value to pointed address
+        emitIFormat(OP_SW, previousTemporary(), currentTemporary(), 0);
+        tfree(2);
+
+        numberOfAssignments = numberOfAssignments + 1;
+      //hw7 end
       } else {
         syntaxErrorSymbol(SYM_ASSIGN);
 
@@ -4472,8 +4536,10 @@ void gr_statement() {
       // identifier [ selector ] = expression;
     }else if(symbol == SYM_LSQRBRACKET){
       entry = global_symbol_table;
+      
       entry = searchSymbolTable(entry, variableOrProcedureName, ARRAY);
-
+      ltype = getType(entry);
+      
       if((int) entry == 0){
         printLineNumber((int*) "error", lineNumber);
         print(variableOrProcedureName);
@@ -4482,7 +4548,7 @@ void gr_statement() {
 
         exit(-1);
       }
-
+      
       //initialize address register with startaddress of array
       load_integer(getAddress(entry));
       emitRFormat(OP_SPECIAL, getScope(entry), currentTemporary(), currentTemporary(), FCT_ADDU);
@@ -4501,7 +4567,11 @@ void gr_statement() {
       }
       getSymbol();
 
-      gr_expression();
+      rtype = gr_expression();
+
+      if(ltype != rtype){
+        typeWarning(ltype, rtype);
+      }
 
       if(valueAvailable){
         load_integer(value);
@@ -5546,6 +5616,8 @@ int copyStringToBinary(int* s, int baddr) {
 
 void emitGlobalsStrings() {
   int* entry;
+  int i;
+  int totalSize;
 
   entry = global_symbol_table;
 
@@ -5561,7 +5633,14 @@ void emitGlobalsStrings() {
       binaryLength = copyStringToBinary(getString(entry), binaryLength);
       //hw7 start
     } else if (getClass(entry) == ARRAY){
-      binaryLength = binaryLength + WORDSIZE * getTotalSize(entry);
+      i = 0;
+      totalSize = getTotalSize(entry);
+      while(i < totalSize){
+        storeBinary(binaryLength, 0);
+        
+        binaryLength = binaryLength + WORDSIZE;
+        i = i +1;
+      }
     }
     //hw7 end
 
