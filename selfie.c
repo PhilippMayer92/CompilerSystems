@@ -3276,7 +3276,7 @@ int gr_factor() {
         type = load_variable(identifier);
 
       //hw7 getSymbol();
-        
+
     // * "(" expression ")"
     } else if (symbol == SYM_LPARENTHESIS) {
       getSymbol();
@@ -3310,9 +3310,44 @@ int gr_factor() {
     getSymbol();
 
     if(symbol == SYM_IDENTIFIER){
-      type = load_variable(identifier);
-
+      //hw7 start
       getSymbol();
+      //["~"] identifier [ selector ] 
+      if(symbol == SYM_LSQRBRACKET){
+        entry = global_symbol_table;
+
+        entry = searchSymbolTable(entry, identifier, ARRAY);
+
+        if((int) entry == 0){
+          printLineNumber((int*) "error", lineNumber);
+          print(variableOrProcedureName);
+          print((int*) " undeclared");
+          println();
+
+          exit(-1);
+        }
+
+        type = getType(entry);
+
+        //initialize address register with startaddress of array
+        load_integer(getAddress(entry));
+        emitRFormat(OP_SPECIAL, getScope(entry), currentTemporary(), currentTemporary(), FCT_ADDU);
+
+        selectorNum = 1;
+        while(symbol == SYM_LSQRBRACKET){
+          getSymbol();
+
+          gr_selector(selectorNum, entry);
+
+          selectorNum = selectorNum +1;
+        }
+
+        //load data from specified array position
+        emitIFormat(OP_LW, currentTemporary(), currentTemporary(), 0);
+      //hw7 end
+      }else
+        type = load_variable(identifier);
+
     // * "(" expression ")"
     } else if (symbol == SYM_LPARENTHESIS) {
       getSymbol();
@@ -3356,6 +3391,42 @@ int gr_factor() {
       // reset return register to initial return value
       // for missing return expressions
       emitIFormat(OP_ADDIU, REG_ZR, REG_V0, 0);
+      
+      //hw7 start
+      // identifier [ selector ]
+    }else if(symbol == SYM_LSQRBRACKET){
+      entry = global_symbol_table;
+        
+      entry = searchSymbolTable(entry, variableOrProcedureName, ARRAY);
+
+      if((int) entry == 0){
+        printLineNumber((int*) "error", lineNumber);
+        print(variableOrProcedureName);
+        print((int*) " undeclared");
+        println();
+
+        exit(-1);
+      }
+
+      type = getType(entry);
+
+      //initialize address register with startaddress of array
+      load_integer(getAddress(entry));
+      emitRFormat(OP_SPECIAL, getScope(entry), currentTemporary(), currentTemporary(), FCT_ADDU);
+
+      selectorNum = 1;
+      while(symbol == SYM_LSQRBRACKET){
+        getSymbol();
+
+        gr_selector(selectorNum, entry);
+
+        selectorNum = selectorNum +1;
+      }
+
+      //load pointer from specified array position
+      emitIFormat(OP_LW, currentTemporary(), currentTemporary(), 0);
+
+      //hw7 end
     } else
       // variable access: identifier
       type = load_variable(variableOrProcedureName);
@@ -4575,7 +4646,7 @@ void gr_statement() {
       else
         syntaxErrorSymbol(SYM_SEMICOLON);
       //hw7 start
-      // identifier [ selector ] = expression;
+      // identifier [ selector ] = expression | call;
     }else if(symbol == SYM_LSQRBRACKET){
       entry = global_symbol_table;
       
