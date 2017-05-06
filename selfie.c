@@ -166,7 +166,8 @@ int CHAR_RSQRBRACKET  = ']';
 int SIZEOFINT     = 4; // must be the same as WORDSIZE
 int SIZEOFINTSTAR = 4; // must be the same as WORDSIZE
 
-int* power_of_two_table;
+//hw7
+int power_of_two_table[31];
 
 int INT_MAX; // maximum numerical value of a signed 32-bit integer
 int INT_MIN; // minimum numerical value of a signed 32-bit integer
@@ -218,15 +219,17 @@ void initLibrary() {
 
   // powers of two table with 31 entries for 2^0 to 2^30
   // avoiding overflow for 2^31 and larger numbers with 32-bit signed integers
-  power_of_two_table = malloc(31 * SIZEOFINT);
+  //hw7 power_of_two_table = malloc(31 * SIZEOFINT);
 
-  *power_of_two_table = 1; // 2^0 == 1
+  //hw7
+  power_of_two_table[0] = 1; // 2^0 == 1
 
   i = 1;
 
   while (i < 31) {
     // compute powers of two incrementally using this recurrence relation
-    *(power_of_two_table + i) = *(power_of_two_table + (i - 1)) * 2;
+    //hw7
+    power_of_two_table[i] = power_of_two_table[i-1] * 2;
 
     i = i + 1;
   }
@@ -1450,7 +1453,8 @@ void initSelfie(int argc, int* argv) {
 
 int twoToThePowerOf(int p) {
   // assert: 0 <= p < 31
-  return *(power_of_two_table + p);
+  // hw7 return *(power_of_two_table + p);
+  return power_of_two_table[p];
 }
 
 int rightShift(int n, int b) {
