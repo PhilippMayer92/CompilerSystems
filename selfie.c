@@ -3178,7 +3178,11 @@ int gr_factor() {
   int hasCast;
   int cast;
   int type;
-  
+  //hw7 start
+  int selectorNum;
+  int* entry;
+  //hw7 end
+
   int* variableOrProcedureName;
 
   // assert: n = allocatedTemporaries
@@ -3228,13 +3232,51 @@ int gr_factor() {
   // dereference?
   if (symbol == SYM_ASTERISK) {
     getSymbol();
-
     // ["*"] identifier
     if (symbol == SYM_IDENTIFIER) {
-      type = load_variable(identifier);
-
+      //hw7 start
       getSymbol();
+      //["*"] identifier [ selector ] 
+      if(symbol == SYM_LSQRBRACKET){
+        entry = global_symbol_table;
 
+        entry = searchSymbolTable(entry, identifier, ARRAY);
+
+        if((int) entry == 0){
+          printLineNumber((int*) "error", lineNumber);
+          print(variableOrProcedureName);
+          print((int*) " undeclared");
+          println();
+
+          exit(-1);
+        }
+
+        type = getType(entry);
+        if(type != INTSTAR_T){
+          typeWarning(INTSTAR_T, type);
+        }
+
+        //initialize address register with startaddress of array
+        load_integer(getAddress(entry));
+        emitRFormat(OP_SPECIAL, getScope(entry), currentTemporary(), currentTemporary(), FCT_ADDU);
+
+        selectorNum = 1;
+        while(symbol == SYM_LSQRBRACKET){
+          getSymbol();
+
+          gr_selector(selectorNum, entry);
+
+          selectorNum = selectorNum +1;
+        }
+
+        //load pointer from specified array position
+        emitIFormat(OP_LW, currentTemporary(), currentTemporary(), 0);
+      //hw7 end
+      }else
+        type = load_variable(identifier);
+
+      //hw7 getSymbol();
+        
     // * "(" expression ")"
     } else if (symbol == SYM_LPARENTHESIS) {
       getSymbol();
@@ -4362,11 +4404,6 @@ void gr_statement() {
         entry = global_symbol_table;
         
         entry = searchSymbolTable(entry, variableOrProcedureName, ARRAY);
-        
-        ltype = getType(entry);
-        if(ltype != INTSTAR_T){
-          typeWarning(INTSTAR_T, ltype);
-        }
 
         if((int) entry == 0){
           printLineNumber((int*) "error", lineNumber);
@@ -4375,6 +4412,11 @@ void gr_statement() {
           println();
 
           exit(-1);
+        }
+
+        ltype = getType(entry);
+        if(ltype != INTSTAR_T){
+          typeWarning(INTSTAR_T, ltype);
         }
 
         //initialize address register with startaddress of array
@@ -4538,7 +4580,6 @@ void gr_statement() {
       entry = global_symbol_table;
       
       entry = searchSymbolTable(entry, variableOrProcedureName, ARRAY);
-      ltype = getType(entry);
       
       if((int) entry == 0){
         printLineNumber((int*) "error", lineNumber);
@@ -4548,6 +4589,8 @@ void gr_statement() {
 
         exit(-1);
       }
+
+      ltype = getType(entry);
       
       //initialize address register with startaddress of array
       load_integer(getAddress(entry));
