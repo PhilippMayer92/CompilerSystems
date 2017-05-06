@@ -477,20 +477,39 @@ int  getScope(int* entry)      { return        *(entry + 7); }
 //hw7 start
 int  getDimensions(int* entry) { return        *(entry + 8); }
 int* getSizes(int* entry)      { return (int*) *(entry + 9); }
-int  getDimSize(int* entry, int dim){
+int  getTotalSize(int* entry)  { return        *(entry + 10); }
+
+int  getDimSize(int* entry, int dimNumb){
   int* ptr;
   int i;
 
   ptr = getSizes(entry);
 
   i = 0;
-  while(i < dim){
+  while(i < (getDimensions(entry) - dimNumb +1)){
     ptr = (int*) *ptr;
     i = i + 1;
   }
   return *(ptr+1);
 }
-int  getTotalSize(int* entry)  { return        *(entry + 10); }
+
+int  getDimMultiplier(int* entry, int dimNumb){
+  int mult;
+  int i;
+  int* ptr;
+  mult = 1;
+  ptr = getSizes(entry);
+
+  i = 0;
+  while(i < (getDimensions(entry) - dimNumb)){ 
+    if((int) ptr == 0) return 0; //dimension doesn't exist
+    mult = mult * *(ptr + 1);
+    ptr = (int*) *ptr;
+    i = i + 1;
+  }
+
+  return mult;
+}
 //hw7 end
 
 void setNextEntry(int* entry, int* next)    { *entry       = (int) next; }
@@ -502,27 +521,22 @@ void setValue(int* entry, int value)        { *(entry + 5) = value; }
 void setAddress(int* entry, int address)    { *(entry + 6) = address; }
 void setScope(int* entry, int scope)        { *(entry + 7) = scope; }
 //hw7 start
-void addDimension(int* entry, int size){
-  int formerDimNum;
-  int* ptr;
-  int i;
+void setSizes(int* entry, int* sizes)       { *(entry + 9)  = (int) sizes;}
+void setDimensions(int* entry, int dim)     { *(entry + 8)  = dim; }
+void setTotalSize(int* entry, int size)     { *(entry + 10) = size; }
 
-  formerDimNum = *(entry + 8);
-  ptr = getSizes(entry);
+void addDimension(int* entry, int size){
+  int* new;
+
   *(entry + 8) = *(entry + 8) + 1;
   *(entry + 10) = *(entry + 10) * size;
 
-  i = 0;
-  while(i < formerDimNum){
-    ptr = (int*) *ptr;
-    i = i + 1;
-  }
+  new = malloc(2);
+  *new = getSizes(entry);
+  *(new + 1) = size;
 
-  ptr = malloc(2);
-  *(ptr + 1) = size;
+  setSizes(entry, new);
 }
-void setDimensions(int* entry, int dim)     { *(entry + 8) = dim; }
-void setTotalSize(int* entry, int size)     { *(entry + 10) = size; }
 //hw7 end
 
 // ------------------------ GLOBAL CONSTANTS -----------------------
@@ -624,7 +638,7 @@ void gr_cstar();
 //hw4
 int gr_shiftExpression();
 //hw7
-int gr_selector();
+int gr_selector(int selectorNum, int* entry);
 
 // ------------------------ GLOBAL VARIABLES -----------------------
 
@@ -2512,6 +2526,7 @@ int* createSymbolTableEntry(int whichTable, int* string, int line, int class, in
   setAddress(newEntry, address);
   setTotalSize(newEntry, 1);
   setDimensions(newEntry, 0);
+  setSizes(newEntry, (int*) 0);
 
   // create entry at head of symbol table
   if (whichTable == GLOBAL_TABLE) {
@@ -4289,6 +4304,7 @@ void gr_statement() {
   int rtype;
   int* variableOrProcedureName;
   int* entry;
+  int selectorNum;
 
   // assert: allocatedTemporaries == 0;
 
@@ -4401,7 +4417,7 @@ void gr_statement() {
     } else
       syntaxErrorSymbol(SYM_LPARENTHESIS);
   }
-  // identifier "=" expression | call
+  // identifier [selector] "=" expression | call
   else if (symbol == SYM_IDENTIFIER) {
     variableOrProcedureName = identifier;
 
@@ -4452,8 +4468,60 @@ void gr_statement() {
         getSymbol();
       else
         syntaxErrorSymbol(SYM_SEMICOLON);
-    } else
+      //hw7 start
+      // identifier [ selector ] = expression;
+    }else if(symbol == SYM_LSQRBRACKET){
+      entry = global_symbol_table;
+      entry = searchSymbolTable(entry, variableOrProcedureName, ARRAY);
+
+      if((int) entry == 0){
+        printLineNumber((int*) "error", lineNumber);
+        print(variableOrProcedureName);
+        print((int*) " undeclared");
+        println();
+
+        exit(-1);
+      }
+
+      //initialize address register with startaddress of array
+      load_integer(getAddress(entry));
+      emitRFormat(OP_SPECIAL, getScope(entry), currentTemporary(), currentTemporary(), FCT_ADDU);
+
+      selectorNum = 1;
+      while(symbol == SYM_LSQRBRACKET){
+        getSymbol();
+
+        gr_selector(selectorNum, entry);
+
+        selectorNum = selectorNum +1;
+      }
+
+      if(symbol != SYM_ASSIGN){
+        syntaxErrorSymbol(SYM_ASSIGN);
+      }
+      getSymbol();
+
+      gr_expression();
+
+      if(valueAvailable){
+        load_integer(value);
+        valueAvailable = 0;
+      }
+
+      emitIFormat(OP_SW, previousTemporary(), currentTemporary(), 0);
+      tfree(2);
+
+      numberOfAssignments = numberOfAssignments + 1;
+
+      if(symbol != SYM_SEMICOLON){
+        syntaxErrorSymbol(SYM_SEMICOLON);
+      }
+      getSymbol();
+
+      //hw7 end
+    } else{
       syntaxErrorUnexpected();
+    }
   }
   // while statement?
   else if (symbol == SYM_WHILE) {
@@ -4739,13 +4807,14 @@ void gr_procedure(int* procedure, int type) {
 }
 
 //hw7 start
-int gr_selector(){
+int gr_selector(int selectorNum, int* entry){
   int size;
+  int multiplier;
+  int type;
   size = 0;
 
-  getSymbol();
-
   if(arrayDeklaration){
+    getSymbol();
     if(symbol != SYM_INTEGER & symbol != SYM_CHARACTER){
       syntaxErrorMessage((int*) "size of array dimension must be a literal of type integer or char");
 
@@ -4755,7 +4824,32 @@ int gr_selector(){
 
     getSymbol();
   }else{
-    gr_simpleExpression();
+    type = gr_simpleExpression();
+
+    if(type == INTSTAR_T){
+      typeWarning(INT_T, type);
+    }
+
+    if(valueAvailable){
+      load_integer(value);
+      valueAvailable = 0;
+    }
+    
+    multiplier = getDimMultiplier(entry, selectorNum);
+    multiplier = multiplier * WORDSIZE;
+    if(multiplier == 0){
+      syntaxErrorMessage((int*) "too much dimensions used");
+
+      exit(-1);
+    }
+    load_integer(multiplier);
+
+    emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), 0, FCT_MULTU);
+    emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFLO);
+    tfree(1);
+
+    emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_ADDU);
+    tfree(1);
   }
 
   if(symbol != SYM_RSQRBRACKET){
@@ -4763,6 +4857,8 @@ int gr_selector(){
 
     exit(-1);
   }
+
+  getSymbol();
 
   return size;
 }
@@ -4774,8 +4870,10 @@ void gr_cstar() {
   int currentLineNumber;
   int initialValue;
   int* entry;
+  //hw7 start
   int dimSize;
   int totalSize;
+  //hw7 end
 
   while (symbol != SYM_EOF) {
     while (lookForType()) {
@@ -4816,6 +4914,7 @@ void gr_cstar() {
           // procedure declaration or definition
           gr_procedure(variableOrProcedureName, type);
         //hw7 start
+        // type identifier "["
         else if(symbol == SYM_LSQRBRACKET){
           totalSize = 1;
           dimSize = 0;
@@ -4824,10 +4923,9 @@ void gr_cstar() {
           entry = createSymbolTableEntry(GLOBAL_TABLE, variableOrProcedureName, currentLineNumber, ARRAY, type, 0, 0);
 
           while(symbol == SYM_LSQRBRACKET){
-            dimSize = gr_selector();
+            dimSize = gr_selector(0, entry);
             addDimension(entry, dimSize);
             totalSize = totalSize * dimSize;
-            getSymbol();
           }
           allocatedMemory = allocatedMemory + WORDSIZE * totalSize;
           setAddress(entry, -allocatedMemory);
