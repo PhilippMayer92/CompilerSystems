@@ -490,26 +490,43 @@ int  getDimSize(int* entry, int dimNumb){
 
   i = 0;
   while(i < (getDimensions(entry) - dimNumb +1)){
-    ptr = (int*) *ptr;
+    ptr = getNextEntry(ptr);
     i = i + 1;
   }
   return *(ptr+1);
 }
 
-int  getDimMultiplier(int* entry, int dimNumb){
+//fehler muss hier sein
+//liefert mit gcc-compiled anderen wert als mit selfie-compiled
+//./selfie -c selfie.c -o selfie1.m -s selfie1.s -m 2 -c test.c -d 1
+int getDimMultiplier(int* entry, int dimNumb){
   int mult;
   int i;
   int* ptr;
+  int factor;
   mult = 1;
   ptr = getSizes(entry);
 
   i = 0;
   while(i < (getDimensions(entry) - dimNumb)){ 
-    if((int) ptr == 0) return 0; //dimension doesn't exist
-    mult = mult * *(ptr + 1);
-    ptr = (int*) *ptr;
+    if((int) ptr == 0) return 1; //dimension doesn't exist
+    factor = *(ptr + 1); //*(ptr + 1) liefert falschen wert in der selfcompiled version
+    mult = mult * factor;
+    print((int*) "durchlaufnummer: ");
+    printInteger(i);
+    print((int*) "  factor: ");
+    printInteger(factor);
+    print((int*) "  factoradresse: ");
+    printInteger((int) (ptr+1));
+    println();
+    ptr = getNextEntry(ptr);
     i = i + 1;
   }
+  print((int*) "i: ");
+  printInteger(i);
+  print((int*) "   dimNumb ");
+  printInteger(dimNumb);
+  println();
 
   return mult;
 }
@@ -531,12 +548,20 @@ void setTotalSize(int* entry, int size)     { *(entry + 10) = size; }
 void addDimension(int* entry, int size){
   int* new;
 
-  *(entry + 8) = *(entry + 8) + 1;
-  *(entry + 10) = *(entry + 10) * size;
-
+  setDimensions(entry, getDimensions(entry) + 1);
+  setTotalSize(entry, getTotalSize(entry) * size);
+  print((int*) "add dim: ");
+  printInteger(size);
+  
   new = malloc(2);
   *new = (int) getSizes(entry);
   *(new + 1) = size;
+
+  print((int*) "   factoradresse: "); //hier passt noch alles
+  printInteger((int) (new+1));
+  print((int*) "   eingefuegter factor: ");
+  printInteger(*(new+1));
+  println();
 
   setSizes(entry, new);
 }
@@ -743,46 +768,83 @@ int REG_GP = 28;
 int REG_SP = 29;
 int REG_FP = 30;
 int REG_RA = 31;
+//hw7 start
+int ABBR   = 0;
+int NAME   = 1;
 
-int* REGISTERS; // strings representing registers
+//hw7
+int REGISTERS[2][32]; // strings representing registers
 
 // ------------------------- INITIALIZATION ------------------------
 
 void initRegister() {
-  REGISTERS = malloc(NUMBEROFREGISTERS * SIZEOFINTSTAR);
+  //hw7 start
+  REGISTERS[ABBR][REG_ZR] = (int)"$zero";
+  REGISTERS[ABBR][REG_AT] = (int)"$at";
+  REGISTERS[ABBR][REG_V0] = (int)"$v0";
+  REGISTERS[ABBR][REG_V1] = (int)"$v1";
+  REGISTERS[ABBR][REG_A0] = (int)"$a0";
+  REGISTERS[ABBR][REG_A1] = (int)"$a1";
+  REGISTERS[ABBR][REG_A2] = (int)"$a2";
+  REGISTERS[ABBR][REG_A3] = (int)"$a3";
+  REGISTERS[ABBR][REG_T0] = (int)"$t0";
+  REGISTERS[ABBR][REG_T1] = (int)"$t1";
+  REGISTERS[ABBR][REG_T2] = (int)"$t2";
+  REGISTERS[ABBR][REG_T3] = (int)"$t3";
+  REGISTERS[ABBR][REG_T4] = (int)"$t4";
+  REGISTERS[ABBR][REG_T5] = (int)"$t5";
+  REGISTERS[ABBR][REG_T6] = (int)"$t6";
+  REGISTERS[ABBR][REG_T7] = (int)"$t7";
+  REGISTERS[ABBR][REG_S0] = (int)"$s0";
+  REGISTERS[ABBR][REG_S1] = (int)"$s1";
+  REGISTERS[ABBR][REG_S2] = (int)"$s2";
+  REGISTERS[ABBR][REG_S3] = (int)"$s3";
+  REGISTERS[ABBR][REG_S4] = (int)"$s4";
+  REGISTERS[ABBR][REG_S5] = (int)"$s5";
+  REGISTERS[ABBR][REG_S6] = (int)"$s6";
+  REGISTERS[ABBR][REG_S7] = (int)"$s7";
+  REGISTERS[ABBR][REG_T8] = (int)"$t8";
+  REGISTERS[ABBR][REG_T9] = (int)"$t9";
+  REGISTERS[ABBR][REG_K0] = (int)"$k0";
+  REGISTERS[ABBR][REG_K1] = (int)"$k1";
+  REGISTERS[ABBR][REG_GP] = (int)"$gp";
+  REGISTERS[ABBR][REG_SP] = (int)"$sp";
+  REGISTERS[ABBR][REG_FP] = (int)"$fp";
+  REGISTERS[ABBR][REG_RA] = (int)"$ra";
 
-  *(REGISTERS + REG_ZR) = (int) "$zero";
-  *(REGISTERS + REG_AT) = (int) "$at";
-  *(REGISTERS + REG_V0) = (int) "$v0";
-  *(REGISTERS + REG_V1) = (int) "$v1";
-  *(REGISTERS + REG_A0) = (int) "$a0";
-  *(REGISTERS + REG_A1) = (int) "$a1";
-  *(REGISTERS + REG_A2) = (int) "$a2";
-  *(REGISTERS + REG_A3) = (int) "$a3";
-  *(REGISTERS + REG_T0) = (int) "$t0";
-  *(REGISTERS + REG_T1) = (int) "$t1";
-  *(REGISTERS + REG_T2) = (int) "$t2";
-  *(REGISTERS + REG_T3) = (int) "$t3";
-  *(REGISTERS + REG_T4) = (int) "$t4";
-  *(REGISTERS + REG_T5) = (int) "$t5";
-  *(REGISTERS + REG_T6) = (int) "$t6";
-  *(REGISTERS + REG_T7) = (int) "$t7";
-  *(REGISTERS + REG_S0) = (int) "$s0";
-  *(REGISTERS + REG_S1) = (int) "$s1";
-  *(REGISTERS + REG_S2) = (int) "$s2";
-  *(REGISTERS + REG_S3) = (int) "$s3";
-  *(REGISTERS + REG_S4) = (int) "$s4";
-  *(REGISTERS + REG_S5) = (int) "$s5";
-  *(REGISTERS + REG_S6) = (int) "$s6";
-  *(REGISTERS + REG_S7) = (int) "$s7";
-  *(REGISTERS + REG_T8) = (int) "$t8";
-  *(REGISTERS + REG_T9) = (int) "$t9";
-  *(REGISTERS + REG_K0) = (int) "$k0";
-  *(REGISTERS + REG_K1) = (int) "$k1";
-  *(REGISTERS + REG_GP) = (int) "$gp";
-  *(REGISTERS + REG_SP) = (int) "$sp";
-  *(REGISTERS + REG_FP) = (int) "$fp";
-  *(REGISTERS + REG_RA) = (int) "$ra";
+  REGISTERS[NAME][REG_ZR] = (int) "hardwired zero";
+  REGISTERS[NAME][REG_AT] = (int) "assembler temporary";
+  REGISTERS[NAME][REG_V0] = (int) "value 0";
+  REGISTERS[NAME][REG_V1] = (int) "value 1";
+  REGISTERS[NAME][REG_A0] = (int) "argument 0";
+  REGISTERS[NAME][REG_A1] = (int) "argument 1";
+  REGISTERS[NAME][REG_A2] = (int) "argument 2";
+  REGISTERS[NAME][REG_A3] = (int) "argument 3";
+  REGISTERS[NAME][REG_T0] = (int) "temporary 0";
+  REGISTERS[NAME][REG_T1] = (int) "temporary 1";
+  REGISTERS[NAME][REG_T2] = (int) "temporary 2";
+  REGISTERS[NAME][REG_T3] = (int) "temporary 3";
+  REGISTERS[NAME][REG_T4] = (int) "temporary 4";
+  REGISTERS[NAME][REG_T5] = (int) "temporary 5";
+  REGISTERS[NAME][REG_T6] = (int) "temporary 6";
+  REGISTERS[NAME][REG_T7] = (int) "temporary 7";
+  REGISTERS[NAME][REG_S0] = (int) "saved value 0";
+  REGISTERS[NAME][REG_S1] = (int) "saved value 1";
+  REGISTERS[NAME][REG_S2] = (int) "saved value 2";
+  REGISTERS[NAME][REG_S3] = (int) "saved value 3";
+  REGISTERS[NAME][REG_S4] = (int) "saved value 4";
+  REGISTERS[NAME][REG_S5] = (int) "saved value 5";
+  REGISTERS[NAME][REG_S6] = (int) "saved value 6";
+  REGISTERS[NAME][REG_S7] = (int) "saved value 7";
+  REGISTERS[NAME][REG_T8] = (int) "temporary 8";
+  REGISTERS[NAME][REG_T9] = (int) "temporary 9";
+  REGISTERS[NAME][REG_K0] = (int) "trap 0";
+  REGISTERS[NAME][REG_K1] = (int) "trap 1";
+  REGISTERS[NAME][REG_GP] = (int) "global pointer";
+  REGISTERS[NAME][REG_SP] = (int) "stack pointer";
+  REGISTERS[NAME][REG_FP] = (int) "frame pointer";
+  REGISTERS[NAME][REG_RA] = (int) "return address";
+  //hw7 end
 }
 
 // -----------------------------------------------------------------
@@ -5024,6 +5086,8 @@ int gr_selector(int selectorNum, int* entry){
     }
     
     multiplier = getDimMultiplier(entry, selectorNum);
+    printInteger(multiplier);
+    println();
     multiplier = multiplier * WORDSIZE;
     if(multiplier == 0){
       syntaxErrorMessage((int*) "too much dimensions used");
@@ -5417,7 +5481,8 @@ void selfie_compile() {
 // -----------------------------------------------------------------
 
 void printRegister(int reg) {
-  print((int*) *(REGISTERS + reg));
+  //hw7
+  print((int*) REGISTERS[ABBR][reg]);
 }
 
 // -----------------------------------------------------------------
