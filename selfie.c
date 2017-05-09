@@ -496,37 +496,23 @@ int  getDimSize(int* entry, int dimNumb){
   return *(ptr+1);
 }
 
-//fehler muss hier sein
-//liefert mit gcc-compiled anderen wert als mit selfie-compiled
+//I think the bug must be here at the symbol table
+//returns the correct value in gcc-compiled version, but not in selfcompiled version
 //./selfie -c selfie.c -o selfie1.m -s selfie1.s -m 2 -c test.c -d 1
 int getDimMultiplier(int* entry, int dimNumb){
   int mult;
   int i;
   int* ptr;
-  int factor;
   mult = 1;
   ptr = getSizes(entry);
 
   i = 0;
   while(i < (getDimensions(entry) - dimNumb)){ 
-    if((int) ptr == 0) return 1; //dimension doesn't exist
-    factor = *(ptr + 1); //*(ptr + 1) liefert falschen wert in der selfcompiled version
-    mult = mult * factor;
-    print((int*) "durchlaufnummer: ");
-    printInteger(i);
-    print((int*) "  factor: ");
-    printInteger(factor);
-    print((int*) "  factoradresse: ");
-    printInteger((int) (ptr+1));
-    println();
+    if((int) ptr == 0) return 0; //dimension doesn't exist
+    mult = mult * *(ptr + 1);
     ptr = getNextEntry(ptr);
     i = i + 1;
   }
-  print((int*) "i: ");
-  printInteger(i);
-  print((int*) "   dimNumb ");
-  printInteger(dimNumb);
-  println();
 
   return mult;
 }
@@ -550,18 +536,10 @@ void addDimension(int* entry, int size){
 
   setDimensions(entry, getDimensions(entry) + 1);
   setTotalSize(entry, getTotalSize(entry) * size);
-  print((int*) "add dim: ");
-  printInteger(size);
   
-  new = malloc(2);
+  new = malloc(SIZEOFINT + SIZEOFINTSTAR);
   *new = (int) getSizes(entry);
   *(new + 1) = size;
-
-  print((int*) "   factoradresse: "); //hier passt noch alles
-  printInteger((int) (new+1));
-  print((int*) "   eingefuegter factor: ");
-  printInteger(*(new+1));
-  println();
 
   setSizes(entry, new);
 }
@@ -4576,10 +4554,12 @@ void gr_statement() {
 
         rtype = gr_expression();
 
+        //gr_expression must return an int
         if(rtype != INT_T){
           typeWarning(INT_T, rtype);
         }
 
+        //value from constant folding
         if(valueAvailable){
           load_integer(value);
           valueAvailable = 0;
@@ -5076,7 +5056,7 @@ int gr_selector(int selectorNum, int* entry){
   }else{
     type = gr_simpleExpression();
 
-    if(type == INTSTAR_T){
+    if(type != INT_T){
       typeWarning(INT_T, type);
     }
 
@@ -5086,8 +5066,6 @@ int gr_selector(int selectorNum, int* entry){
     }
     
     multiplier = getDimMultiplier(entry, selectorNum);
-    printInteger(multiplier);
-    println();
     multiplier = multiplier * WORDSIZE;
     if(multiplier == 0){
       syntaxErrorMessage((int*) "too much dimensions used");
