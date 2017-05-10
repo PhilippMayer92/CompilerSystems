@@ -482,6 +482,7 @@ int  getDimensions(int* entry) { return        *(entry + 8); }
 int* getSizes(int* entry)      { return (int*) *(entry + 9); }
 int  getTotalSize(int* entry)  { return        *(entry + 10); }
 
+//gets the size for dimension dimNub....dimNumb starts with 1
 int  getDimSize(int* entry, int dimNumb){
   int* ptr;
   int i;
@@ -496,9 +497,7 @@ int  getDimSize(int* entry, int dimNumb){
   return *(ptr+1);
 }
 
-//I think the bug must be here at the symbol table
-//returns the correct value in gcc-compiled version, but not in selfcompiled version
-//./selfie -c selfie.c -o selfie1.m -s selfie1.s -m 2 -c test.c -d 1
+//get the multiplier for address calculation of dimension dimNumb....dimNumb starts with 1
 int getDimMultiplier(int* entry, int dimNumb){
   int mult;
   int i;
@@ -531,6 +530,7 @@ void setSizes(int* entry, int* sizes)       { *(entry + 9)  = (int) sizes;}
 void setDimensions(int* entry, int dim)     { *(entry + 8)  = dim; }
 void setTotalSize(int* entry, int size)     { *(entry + 10) = size; }
 
+//adds a new array dimension to a symbol table entry
 void addDimension(int* entry, int size){
   int* new;
 
@@ -574,6 +574,8 @@ int* library_symbol_table = (int*) 0;
 int numberOfGlobalVariables = 0;
 int numberOfProcedures      = 0;
 int numberOfStrings         = 0;
+//hw7
+int numberOfArrays          = 0;
 
 // ------------------------- INITIALIZATION ------------------------
 
@@ -585,6 +587,8 @@ void resetSymbolTables() {
   numberOfGlobalVariables = 0;
   numberOfProcedures      = 0;
   numberOfStrings         = 0;
+  //hw7
+  numberOfArrays          = 0;
 }
 
 // -----------------------------------------------------------------
@@ -2584,6 +2588,10 @@ int* createSymbolTableEntry(int whichTable, int* string, int line, int class, in
       numberOfProcedures = numberOfProcedures + 1;
     else if (class == STRING)
       numberOfStrings = numberOfStrings + 1;
+    //hw7 start
+    else if(class == ARRAY)
+      numberOfArrays = numberOfArrays +1;
+    //hw7 end
   } else if (whichTable == LOCAL_TABLE) {
     setScope(newEntry, REG_FP);
     setNextEntry(newEntry, local_symbol_table);
@@ -3296,9 +3304,6 @@ int gr_factor() {
         }
 
         type = getType(entry);
-        if(type != INTSTAR_T){
-          typeWarning(INTSTAR_T, type);
-        }
 
         //initialize address register with startaddress of array
         load_integer(getAddress(entry));
@@ -3313,8 +3318,20 @@ int gr_factor() {
           selectorNum = selectorNum +1;
         }
 
-        //load pointer from specified array position
-        emitIFormat(OP_LW, currentTemporary(), currentTemporary(), 0);
+        //in case of to few dimension an pointer at the first entry of first lost dimension will be returned
+        if((selectorNum-1)<getDimensions(entry)){
+          if(type != INT_T){
+            typeWarning(INT_T, type);
+          }
+        }else{
+          if(type != INTSTAR_T){
+            typeWarning(INTSTAR_T, type);
+          }
+          //load pointer from specified array position
+          emitIFormat(OP_LW, currentTemporary(), currentTemporary(), 0);  
+        }
+        
+        type = INT_T;
       //hw7 end
       }else
         type = load_variable(identifier);
@@ -3386,8 +3403,13 @@ int gr_factor() {
           selectorNum = selectorNum +1;
         }
 
-        //load data from specified array position
-        emitIFormat(OP_LW, currentTemporary(), currentTemporary(), 0);
+        //in case of to few dimension an pointer at the first entry of first lost dimension will be returned
+        if((selectorNum-1)<getDimensions(entry)){
+          type = INTSTAR_T;
+        }else{
+          //load data from specified array position
+          emitIFormat(OP_LW, currentTemporary(), currentTemporary(), 0);
+        }
       //hw7 end
       }else
         type = load_variable(identifier);
@@ -3467,8 +3489,13 @@ int gr_factor() {
         selectorNum = selectorNum +1;
       }
 
-      //load pointer from specified array position
-      emitIFormat(OP_LW, currentTemporary(), currentTemporary(), 0);
+      //in case of to few dimension an pointer at the first entry of first lost dimension will be returned
+      if((selectorNum-1)<getDimensions(entry)){
+        type = INTSTAR_T;
+      }else{
+        //load data from specified array position
+        emitIFormat(OP_LW, currentTemporary(), currentTemporary(), 0);
+      }
 
       //hw7 end
     } else
@@ -4713,6 +4740,7 @@ void gr_statement() {
       load_integer(getAddress(entry));
       emitRFormat(OP_SPECIAL, getScope(entry), currentTemporary(), currentTemporary(), FCT_ADDU);
 
+      //iterate through found selectors
       selectorNum = 1;
       while(symbol == SYM_LSQRBRACKET){
         getSymbol();
@@ -4722,6 +4750,7 @@ void gr_statement() {
         selectorNum = selectorNum +1;
       }
 
+      //search for assignment
       if(symbol != SYM_ASSIGN){
         syntaxErrorSymbol(SYM_ASSIGN);
       }
@@ -4733,11 +4762,13 @@ void gr_statement() {
         typeWarning(ltype, rtype);
       }
 
+      //get value from constant folding
       if(valueAvailable){
         load_integer(value);
         valueAvailable = 0;
       }
 
+      //store new value
       emitIFormat(OP_SW, previousTemporary(), currentTemporary(), 0);
       tfree(2);
 
@@ -5043,6 +5074,7 @@ int gr_selector(int selectorNum, int* entry){
   int type;
   size = 0;
 
+  
   if(arrayDeklaration){
     getSymbol();
     if(symbol != SYM_INTEGER & symbol != SYM_CHARACTER){
@@ -5056,15 +5088,12 @@ int gr_selector(int selectorNum, int* entry){
   }else{
     type = gr_simpleExpression();
 
+    //indices must ba integers
     if(type != INT_T){
       typeWarning(INT_T, type);
     }
-
-    if(valueAvailable){
-      load_integer(value);
-      valueAvailable = 0;
-    }
     
+    //calculate address offset for this dimension
     multiplier = getDimMultiplier(entry, selectorNum);
     multiplier = multiplier * WORDSIZE;
     if(multiplier == 0){
@@ -5072,11 +5101,18 @@ int gr_selector(int selectorNum, int* entry){
 
       exit(-1);
     }
-    load_integer(multiplier);
+    
+    if(valueAvailable){
+      value = value * multiplier;
+      load_integer(value);
+      valueAvailable = 0;
+    }else{
+      load_integer(multiplier);
 
-    emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), 0, FCT_MULTU);
-    emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFLO);
-    tfree(1);
+      emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), 0, FCT_MULTU);
+      emitRFormat(OP_SPECIAL, 0, 0, previousTemporary(), FCT_MFLO);
+      tfree(1);
+    }
 
     emitRFormat(OP_SPECIAL, previousTemporary(), currentTemporary(), previousTemporary(), FCT_ADDU);
     tfree(1);
@@ -5154,9 +5190,11 @@ void gr_cstar() {
 
           while(symbol == SYM_LSQRBRACKET){
             dimSize = gr_selector(0, entry);
+            //write the new size into the linked list for size in the symbol table entry
             addDimension(entry, dimSize);
             totalSize = totalSize * dimSize;
           }
+          //add the needed memory for the array to calculate the offset of gp pointer
           allocatedMemory = allocatedMemory + WORDSIZE * totalSize;
           setAddress(entry, -allocatedMemory);
           
@@ -5403,6 +5441,10 @@ void selfie_compile() {
       print((int*) ": ");
       printInteger(numberOfGlobalVariables);
       print((int*) " global variables, ");
+      //hw7 start
+      printInteger(numberOfArrays);
+      print((int*) " arrays, ");
+      //hw7 end
       printInteger(numberOfProcedures);
       print((int*) " procedures, ");
       printInteger(numberOfStrings);
@@ -5793,6 +5835,7 @@ void emitGlobalsStrings() {
     } else if (getClass(entry) == STRING){
       binaryLength = copyStringToBinary(getString(entry), binaryLength);
       //hw7 start
+      //allocate space for arrays and initialize it with 0
     } else if (getClass(entry) == ARRAY){
       i = 0;
       totalSize = getTotalSize(entry);

@@ -44,7 +44,7 @@ cast                = "(" type ")" .
 
 literal             = integer | character .
 
-selector            = { "[" simpleExpression "]" } .
+selector            = "[" simpleExpression "]" .
 
 procedure           = "(" [ variable { "," variable } ] ")"
                     ( ";" | "{" { variable ";" } { statement } "}" ) .
