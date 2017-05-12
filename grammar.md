@@ -8,9 +8,9 @@ This is the grammar of the C Star (C\*) programming language.
 
 C\* is a small Turing-complete subset of C that includes dereferencing (the `*` operator) but excludes data structures, bitwise and Boolean operators, and many other features. C\* is supposed to be close to the minimum necessary for implementing a self-compiling, single-pass, recursive-descent compiler.
 
-C\* Keywords: `int`, `while`, `if`, `else`, `return`, `void`
+C\* Keywords: `int`, `while`, `if`, `else`, `return`, `void`, `struct`
 
-C\* Symbols: `=`, `+`, `-`, `*`, `/`, `%`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `,`, `(`, `)`, `{`, `}`, `;`, '<<', '>>', integer, identifier, character, string
+C\* Symbols: `=`, `+`, `-`, `*`, `/`, `%`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `,`, `(`, `)`, `{`, `}`, `;`, '<<', '>>', `&`, `|`, `[`, `]`, integer, identifier, character, string
 
 with:
 
@@ -36,7 +36,10 @@ C\* Grammar:
 
 ```
 cstar               = { type identifier [ "=" [ cast ] [ "-" ] literal ] ";" |
-                   ( "void" | type ) identifier procedure | type identifier { selector } ";" } .
+                      ( "void" | type ) identifier procedure | type identifier { selector } ";" |
+                      "struct" identifier ( "*" identifier | structDef ) ";" } .
+
+structDef           = "{" { ( type | "struct" identifier "*" ) identifier ";" } "}" .
 
 type                = "int" [ "*" ] .
 
@@ -47,11 +50,11 @@ literal             = integer | character .
 selector            = "[" simpleExpression "]" .
 
 procedure           = "(" [ variable { "," variable } ] ")"
-                    ( ";" | "{" { variable ";" } { statement } "}" ) .
+                      ( ";" | "{" { variable ";" } { statement } "}" ) .
 
 variable            = type identifier .
 
-statement            = call ";" | while | if | return ";" |
+statement           = call ";" | while | if | return ";" |
                        ( [ "*" ] identifier { selector } | "*" "(" expression ")" )
                        "=" expression ";" .
 
@@ -68,10 +71,10 @@ simpleExpression(v) = [ "-" ] term(v) { ( "+" | "-" ) term(v) } .
 term(v)             = factor(v) { ( "*" | "/" | "%" ) factor(v) } .
 
 factor(v)           = [ cast ]
-                     ( [ "*" | "~"] ( identifier { selector } | "(" expression(v) ")" ) |
-                       call |
-                       literal(v) |
-                       string ) .
+                      ( [ "*" | "~"] ( identifier { selector } | "(" expression(v) ")" ) |
+                      call |
+                      literal(v) |
+                      string ) .
 
 while               = "while" "(" expression ")"
                              ( statement |
