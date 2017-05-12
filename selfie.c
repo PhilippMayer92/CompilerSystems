@@ -447,47 +447,6 @@ void resetScanner() {
 // ------------------------- SYMBOL TABLE --------------------------
 // -----------------------------------------------------------------
 
-// ------------------------ GLOBAL CONSTANTS -----------------------
-
-// classes
-int VARIABLE  = 1;
-int PROCEDURE = 2;
-int STRING    = 3;
-//hw7
-int ARRAY     = 4;
-//hw8
-int STRUCT    = 5;
-
-// types
-int INT_T         = 1;
-int INTSTAR_T     = 2;
-int VOID_T        = 3;
-//hw8
-int STRUCTSTAR_T  = 4;
-
-// symbol tables
-int GLOBAL_TABLE  = 1;
-int LOCAL_TABLE   = 2;
-int LIBRARY_TABLE = 3;
-
-// ------------------------ GLOBAL VARIABLES -----------------------
-
-// table pointers
-int* global_symbol_table  = (int*) 0;
-int* local_symbol_table   = (int*) 0;
-int* library_symbol_table = (int*) 0;
-
-int numberOfGlobalVariables = 0;
-int numberOfProcedures      = 0;
-int numberOfStrings         = 0;
-//hw7
-int numberOfArrays          = 0;
-//hw8 start
-int numberOfStructDef       = 0;
-int numberOfStructInst      = 0;
-//hw8 end
-
-// ------------------------ SYMBOL TABLE -----------------------------
 //hw8 start
 struct symbol_table_t {
   struct symbol_table_t * next;   //0
@@ -667,7 +626,45 @@ void addStructElement(int* entry, int* name, int* type, int* def, int offset){
 }
 //hw8 end
 
+// ------------------------ GLOBAL CONSTANTS -----------------------
 
+// classes
+int VARIABLE  = 1;
+int PROCEDURE = 2;
+int STRING    = 3;
+//hw7
+int ARRAY     = 4;
+//hw8
+int STRUCT    = 5;
+
+// types
+int INT_T         = 1;
+int INTSTAR_T     = 2;
+int VOID_T        = 3;
+//hw8
+int STRUCTSTAR_T  = 4;
+
+// symbol tables
+int GLOBAL_TABLE  = 1;
+int LOCAL_TABLE   = 2;
+int LIBRARY_TABLE = 3;
+
+// ------------------------ GLOBAL VARIABLES -----------------------
+
+// table pointers
+int* global_symbol_table  = (int*) 0;
+int* local_symbol_table   = (int*) 0;
+int* library_symbol_table = (int*) 0;
+
+int numberOfGlobalVariables = 0;
+int numberOfProcedures      = 0;
+int numberOfStrings         = 0;
+//hw7
+int numberOfArrays          = 0;
+//hw8 start
+int numberOfStructDef       = 0;
+int numberOfStructInst      = 0;
+//hw8 end
 
 // ------------------------- INITIALIZATION ------------------------
 
@@ -2695,7 +2692,12 @@ int* createSymbolTableEntry(int whichTable, int* string, int line, int class, in
     global_symbol_table = newEntry;
 
     if (class == VARIABLE)
-      numberOfGlobalVariables = numberOfGlobalVariables + 1;
+      //hw8 start
+      if(type == STRUCTSTAR_T)
+        numberOfStructInst = numberOfStructInst + 1;
+      //hw8 end
+      else
+        numberOfGlobalVariables = numberOfGlobalVariables + 1;
     else if (class == PROCEDURE)
       numberOfProcedures = numberOfProcedures + 1;
     else if (class == STRING)
@@ -5701,6 +5703,12 @@ void selfie_compile() {
       printInteger(numberOfArrays);
       print((int*) " arrays, ");
       //hw7 end
+      //hw8 start
+      printInteger(numberOfStructDef);
+      print((int*) " structs defined, ");
+      printInteger(numberOfStructInst);
+      print((int*) " global struct pointers, ");
+      //hw8 end
       printInteger(numberOfProcedures);
       print((int*) " procedures, ");
       printInteger(numberOfStrings);
