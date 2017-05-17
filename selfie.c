@@ -461,6 +461,29 @@ struct symbol_table_t {
   int totalSize;                  //9
 };
 
+int* getNextEntry(int* entry)  { return (int*) *entry; }
+int* getString(int* entry)     { return (int*) *(entry + 1); }
+int  getLineNumber(int* entry) { return        *(entry + 2); }
+int  getClass(int* entry)      { return        *(entry + 3); }
+int* getTypeStruct(int* entry) { return (int*) *(entry + 4); }
+int  getValue(int* entry)      { return        *(entry + 5); }
+int  getAddress(int* entry)    { return        *(entry + 6); }
+int  getScope(int* entry)      { return        *(entry + 7); }
+int  getNumbOfDim(int* entry)  { return        *(entry + 8); }
+int  getTotalSize(int* entry)  { return        *(entry + 9); }
+
+void setNextEntry(int* entry, int* next)    { *entry       = (int) next; }
+void setString(int* entry, int* identifier) { *(entry + 1) = (int) identifier; }
+void setLineNumber(int* entry, int line)    { *(entry + 2) = line; }
+void setClass(int* entry, int class)        { *(entry + 3) = class; }
+void setTypeStruct(int* entry, int type)    { *(entry + 4) = type; }
+void setValue(int* entry, int value)        { *(entry + 5) = value; }
+void setAddress(int* entry, int address)    { *(entry + 6) = address; }
+void setScope(int* entry, int scope)        { *(entry + 7) = scope; }
+void setNumbOfDim(int* entry, int dim)      { *(entry + 8)  = dim; }
+void setTotalSize(int* entry, int size)     { *(entry + 9) = size; }
+
+
 struct type_t {
   int type;
   struct symbol_table_t * definition;
@@ -469,18 +492,25 @@ struct type_t {
   struct field_t * fields;
 };
 
+int  getType(int* entry)        { return        *entry; }
 int* getDefintion(int* entry)   { return (int*) *(entry + 1); }
+int* getStructName(int* entry)  { return (int*) *(entry + 2); }
 int* getDimensions(int* entry)  { return (int*) *(entry + 3); }
 int* getFields(int* entry)      { return (int*) *(entry + 4); }
 
+void setType(int* entry, int type)           { *entry       = type; }
 void setDefintion(int* entry, int* def)      { *(entry + 1) = (int) def; }
+void setStructName(int* entry, int* name)    { *(entry + 2) = (int) name; }
 void setDimensions(int* entry, int* dim)     { *(entry + 3) = (int) dim; }
-void setFields(int* entry, int* fields)      { *(entry + 3) = (int) fields; }
+void setFields(int* entry, int* fields)      { *(entry + 4) = (int) fields; }
 
 struct dimension_t {
   struct dimension_t * next;
   int size;
 };
+
+int getSize(int* entry) { return *(entry + 1);}
+void setSize(int* entry, int size) { *(entry + 1) = size; }
 
 struct field_t {
   struct field_t * next;
@@ -489,14 +519,17 @@ struct field_t {
   int offset;
 };
 
+int* getFieldName(int* entry)   { return (int*) *(entry + 1); }
 int* getFieldType(int* entry)   { return (int*) *(entry + 2); }
-void setFieldType(int* entry, int* type)   { *(entry + 2) = (int) type; }
-//hw8 end
+int  getFieldOffset(int* entry) { return        *(entry + 3); }
 
+void setFieldName(int* entry, int* name)   { *(entry + 1) = (int) name; } 
+void setFieldType(int* entry, int* type)   { *(entry + 2) = (int) type; }
+void setFieldOffset(int* entry, int offset){ *(entry + 3) =       offset; }
 
 void resetSymbolTables();
 
-//hw7 changed returntype from void tp int*
+//hw7 changed returntype from void to int*
 int* createSymbolTableEntry(int which, int* string, int line, int class, int type, int value, int address);
 
 int* searchSymbolTable(int* entry, int* string, int class);
@@ -505,24 +538,10 @@ int* getScopedSymbolTableEntry(int* string, int class);
 int isUndefinedProcedure(int* entry);
 int reportUndefinedProcedures();
 
-int* getNextEntry(int* entry)  { return (int*) *entry; }
-int* getString(int* entry)     { return (int*) *(entry + 1); }
-int  getLineNumber(int* entry) { return        *(entry + 2); }
-int  getClass(int* entry)      { return        *(entry + 3); }
-//hw8 start
-int* getTypeStruct(int* entry)  { return (int*) *(entry + 4); }
-int getType(int* entry){ 
-  int* ptr;
-  ptr = getTypeStruct(entry); 
-  return *ptr;
+int getVariableType(int* entry){ 
+  entry = getTypeStruct(entry); 
+  return getType(entry);
 }
-//h8 end
-int  getValue(int* entry)      { return        *(entry + 5); }
-int  getAddress(int* entry)    { return        *(entry + 6); }
-int  getScope(int* entry)      { return        *(entry + 7); }
-//hw7 hw8 start
-int  getNumbOfDim(int* entry)  { return        *(entry + 8); }
-int  getTotalSize(int* entry)  { return        *(entry + 9); }
 
 //gets the size for dimension dimNub....dimNumb starts with 1
 int  getDimSize(int* entry, int dimNumb){
@@ -537,7 +556,7 @@ int  getDimSize(int* entry, int dimNumb){
     ptr = getNextEntry(ptr);
     i = i + 1;
   }
-  return *(ptr+1);
+  return getSize(ptr);
 }
 
 //get the multiplier for address calculation of dimension dimNumb....dimNumb starts with 1
@@ -553,52 +572,37 @@ int getDimMultiplier(int* entry, int dimNumb){
   i = 0;
   while(i < (getNumbOfDim(entry) - dimNumb)){ 
     if((int) ptr == 0) return 0; //dimension doesn't exist
-    mult = mult * *(ptr + 1);
+    mult = mult * getSize(ptr);
     ptr = getNextEntry(ptr);
     i = i + 1;
   }
 
   return mult;
 }
-//hw7 end
 
-void setNextEntry(int* entry, int* next)    { *entry       = (int) next; }
-void setString(int* entry, int* identifier) { *(entry + 1) = (int) identifier; }
-void setLineNumber(int* entry, int line)    { *(entry + 2) = line; }
-void setClass(int* entry, int class)        { *(entry + 3) = class; }
-void setTypeStruct(int* entry, int type)    { *(entry + 4) = type; }
-void  setType(int* entry, int type){ 
-  int* ptr;
-  ptr = getTypeStruct(entry); 
-  *ptr = type;
+//sets the type of a variable, array or procedure
+void  setVariableType(int* entry, int type){ 
+  entry = getTypeStruct(entry); 
+  setType(entry, type);
 }
-void setValue(int* entry, int value)        { *(entry + 5) = value; }
-void setAddress(int* entry, int address)    { *(entry + 6) = address; }
-void setScope(int* entry, int scope)        { *(entry + 7) = scope; }
-//hw7 start
-void setNumbOfDim(int* entry, int dim)      { *(entry + 8)  = dim; }
-void setTotalSize(int* entry, int size)     { *(entry + 9) = size; }
 
 //adds a new array dimension to a symbol table entry
 void addDimension(int* entry, int size){
   int* new;
-  int* ptr;
 
   setNumbOfDim(entry, getNumbOfDim(entry) + 1);
   setTotalSize(entry, getTotalSize(entry) * size);
 
-  ptr = getTypeStruct(entry);
+  entry = getTypeStruct(entry);
   
   new = malloc(SIZEOFINT + SIZEOFINTSTAR);
-  *new = (int) getDimensions(ptr);
-  *(new + 1) = size;
+  setNextEntry(new, getDimensions(entry));
+  setSize(new, size);
 
-  setDimensions(ptr, new);
+  setDimensions(entry, new);
 }
-//hw7 end
 
-//hw8 start
-//linked list fpr struct elements containing
+//linked list for struct elements containing
 // 1. word: pointer to next entry
 // 2. word: pointer to element name
 // 3. word: type
@@ -613,16 +617,16 @@ void addStructElement(int* entry, int* name, int* type, int* def, int offset){
   ptr = getFields(entry);
 
   new = malloc(SIZEOFINT + 3*SIZEOFINTSTAR);
-  *new = (int) ptr;
-  *(new + 1) = (int) name;
+  setNextEntry(new, ptr);
+  setFieldName(new, name);
 
   ptr = malloc(4 * SIZEOFINTSTAR + SIZEOFINT);
-  *(new + 2) = (int) ptr;
-  *(new + 3) = (int) offset;
+  setFieldType(new, ptr);
+  setFieldOffset(new, offset);
   setFields(entry, new);
 
-  *(ptr + 2) = (int) type;
-  *(ptr + 1) = (int) def;
+  setDefintion(ptr, def);
+  setStructName(ptr, type);
 }
 //hw8 end
 
@@ -2662,17 +2666,24 @@ void getSymbol() {
 //hw7 changed returntype
 int* createSymbolTableEntry(int whichTable, int* string, int line, int class, int type, int value, int address) {
   int* newEntry;
+  //hw8
   int* typeStruct;
   //hw7
   newEntry = malloc(3 * SIZEOFINTSTAR + 7 * SIZEOFINT);
+  //hw8 start
   typeStruct = malloc(4 * SIZEOFINTSTAR + SIZEOFINT);
 
-  *typeStruct = type;
-  *(typeStruct + 3) = 0;
+  setType(typeStruct, type);
+  setDefintion(typeStruct, (int*) 0);
+  setStructName(typeStruct, (int*) 0);
+  setDimensions(typeStruct, (int*) 0);
+  setFields(typeStruct, (int*) 0);
+  //hw8 end
 
   setString(newEntry, string);
   setLineNumber(newEntry, line);
   setClass(newEntry, class);
+  //hw8
   setTypeStruct(newEntry, typeStruct);
   setValue(newEntry, value);
   setAddress(newEntry, address);
@@ -3112,7 +3123,7 @@ int load_variable(int* variable) {
 
   emitIFormat(OP_LW, getScope(entry), currentTemporary(), getAddress(entry));
 
-  return getType(entry);
+  return getVariableType(entry);
 }
 
 void load_integer(int value) {
@@ -3204,7 +3215,7 @@ int help_call_codegen(int* entry, int* procedure) {
     emitJFormat(OP_JAL, 0);
 
   } else {
-    type = getType(entry);
+    type = getVariableType(entry);
 
     if (getAddress(entry) == 0) {
       // procedure declared but never called nor defined
@@ -3425,7 +3436,7 @@ int gr_factor() {
           exit(-1);
         }
 
-        type = getType(entry);
+        type = getVariableType(entry);
 
         //initialize address register with startaddress of array
         load_integer(getAddress(entry));
@@ -3510,7 +3521,7 @@ int gr_factor() {
           exit(-1);
         }
 
-        type = getType(entry);
+        type = getVariableType(entry);
 
         //initialize address register with startaddress of array
         load_integer(getAddress(entry));
@@ -3596,7 +3607,7 @@ int gr_factor() {
         exit(-1);
       }
 
-      type = getType(entry);
+      type = getVariableType(entry);
 
       //initialize address register with startaddress of array
       load_integer(getAddress(entry));
@@ -4678,7 +4689,7 @@ void gr_statement() {
           exit(-1);
         }
 
-        ltype = getType(entry);
+        ltype = getVariableType(entry);
         if(ltype != INTSTAR_T){
           typeWarning(INTSTAR_T, ltype);
         }
@@ -4814,7 +4825,7 @@ void gr_statement() {
     } else if (symbol == SYM_ASSIGN) {
       entry = getVariable(variableOrProcedureName);
 
-      ltype = getType(entry);
+      ltype = getVariableType(entry);
 
       getSymbol();
 
@@ -4856,7 +4867,7 @@ void gr_statement() {
         exit(-1);
       }
 
-      ltype = getType(entry);
+      ltype = getVariableType(entry);
       
       //initialize address register with startaddress of array
       load_integer(getAddress(entry));
@@ -5093,10 +5104,10 @@ void gr_procedure(int* procedure, int type) {
     if (entry == (int*) 0)
       // procedure never called nor declared nor defined
       createSymbolTableEntry(GLOBAL_TABLE, procedure, lineNumber, PROCEDURE, type, 0, 0);
-    else if (getType(entry) != type)
+    else if (getVariableType(entry) != type)
       // procedure already called, declared, or even defined
       // check return type but otherwise ignore
-      typeWarning(getType(entry), type);
+      typeWarning(getVariableType(entry), type);
 
     getSymbol();
 
@@ -5125,10 +5136,10 @@ void gr_procedure(int* procedure, int type) {
         // procedure already called or declared but not defined
         setLineNumber(entry, lineNumber);
 
-        if (getType(entry) != type)
-          typeWarning(getType(entry), type);
+        if (getVariableType(entry) != type)
+          typeWarning(getVariableType(entry), type);
 
-        setType(entry, type);
+        setVariableType(entry, type);
         setAddress(entry, binaryLength);
       } else {
         // procedure already defined
