@@ -5292,7 +5292,6 @@ void gr_structDef(int* structName){
   offset = 0;
   while(lookForType() == 0){
     if(symbol == SYM_STRUCT){
-      type = STRUCTSTAR_T;
 
       getSymbol();
 
@@ -5314,7 +5313,7 @@ void gr_structDef(int* structName){
         syntaxErrorSymbol(SYM_IDENTIFIER);
       }
 
-      addStructElement(entry, variableName, -1, structEntry, offset); 
+      addStructElement(entry, variableName, STRUCTSTAR_T, structEntry, offset); 
 
     }else{
       type = gr_type();
