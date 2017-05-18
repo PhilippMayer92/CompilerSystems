@@ -647,6 +647,8 @@ int INTSTAR_T     = 2;
 int VOID_T        = 3;
 //hw8
 int STRUCTSTAR_T  = 4;
+//hw9
+int MALLOCSTAR_T  = 5;
 
 // symbol tables
 int GLOBAL_TABLE  = 1;
@@ -715,7 +717,8 @@ void restore_temporaries(int numberOfTemporaries);
 void syntaxErrorSymbol(int expected);
 void syntaxErrorUnexpected();
 void printType(int type);
-void typeWarning(int expected, int found);
+//hw9 changed return type
+int typeWarning(int expected, int found);
 
 int* getVariable(int* variable);
 int  load_variable(int* variable);
@@ -3077,11 +3080,28 @@ void printType(int type) {
     print((int*) "int*");
   else if (type == VOID_T)
     print((int*) "void");
+  //hw9 start
+  else if (type == STRUCTSTAR_T)
+    print((int*) "struct*");
+  else if (type == MALLOCSTAR_T)
+    print((int*) "undefined star type");
+  //hw9 end
   else
     print((int*) "unknown");
 }
 
-void typeWarning(int expected, int found) {
+//hw9 changed return type
+int typeWarning(int expected, int found) {
+  //hw9 start
+  if(expected == INTSTAR_T | found == INTSTAR_T){
+    if(found == MALLOCSTAR_T | expected == MALLOCSTAR_T)
+      return INTSTAR_T;
+  }else if(expected == STRUCTSTAR_T | found == STRUCTSTAR_T){
+    if(found == MALLOCSTAR_T | expected == MALLOCSTAR_T)
+      return STRUCTSTAR_T;
+  }
+  //hw9 end
+
   printLineNumber((int*) "warning", lineNumber);
 
   print((int*) "type mismatch, ");
@@ -3095,6 +3115,9 @@ void typeWarning(int expected, int found) {
   print((int*) " found");
 
   println();
+
+  //hw9
+  return expected;
 }
 
 int* getVariable(int* variable) {
@@ -3492,7 +3515,8 @@ int gr_factor() {
       syntaxErrorUnexpected();
 
     if (type != INTSTAR_T)
-      typeWarning(INTSTAR_T, type);
+      //hw9
+      type = typeWarning(INTSTAR_T, type);
 
     // dereference
     emitIFormat(OP_LW, currentTemporary(), currentTemporary(), 0);
@@ -3718,7 +3742,8 @@ int gr_term() {
     // assert: allocatedTemporaries == n + 2
 
     if (ltype != rtype)
-      typeWarning(ltype, rtype);
+      //hw9
+      ltype = typeWarning(ltype, rtype);
 
     //hw6 start
     if (operatorSymbol == SYM_ASTERISK) {
@@ -4093,7 +4118,7 @@ int gr_simpleExpression() {
       } else{ 
         if (rtype == INTSTAR_T)
           //fehler?
-          typeWarning(ltype, rtype);
+          ltype = typeWarning(ltype, rtype);
 
         //hw6 start
         if(valueAvailable){
@@ -4244,6 +4269,15 @@ int gr_expression(){
 
     rtype=gr_compExpression();
 
+    //hw9 start
+    if(ltype == MALLOCSTAR_T | rtype == MALLOCSTAR_T){
+      if(ltype == INTSTAR_T | rtype == INTSTAR_T)
+        ltype = INTSTAR_T;
+      else if(ltype == STRUCTSTAR_T | rtype == STRUCTSTAR_T)
+        ltype = STRUCTSTAR_T;
+    }
+    //hw9 end
+
     //hw6 start
     if(valueAvailable){
       load_integer(value);
@@ -4327,7 +4361,8 @@ int gr_compExpression() {
     // assert: allocatedTemporaries == n + 2
 
     if (ltype != rtype)
-      typeWarning(ltype, rtype);
+      //hw9
+      ltype = typeWarning(ltype, rtype);
 
     if (operatorSymbol == SYM_EQUALITY) {
       // subtract, if result = 0 then 1, else 0
@@ -4594,7 +4629,8 @@ void gr_return() {
       //hw6 end
 
     if (type != returnType)
-      typeWarning(returnType, type);
+      //hw9
+      returnType = typeWarning(returnType, type);
 
     // save value of expression in return register
     emitRFormat(OP_SPECIAL, REG_ZR, currentTemporary(), REG_V0, FCT_ADDU);
@@ -4759,7 +4795,8 @@ void gr_statement() {
       //hw6 end
 
       if (ltype != INTSTAR_T)
-        typeWarning(INTSTAR_T, ltype);
+        //hw9
+        ltype = typeWarning(INTSTAR_T, ltype);
 
       if (symbol == SYM_RPARENTHESIS) {
         getSymbol();
@@ -4839,7 +4876,8 @@ void gr_statement() {
       //hw6 end
 
       if (ltype != rtype)
-        typeWarning(ltype, rtype);
+        //hw9
+        ltype = typeWarning(ltype, rtype);
 
       emitIFormat(OP_SW, getScope(entry), currentTemporary(), getAddress(entry));
 
@@ -4892,7 +4930,8 @@ void gr_statement() {
       rtype = gr_expression();
 
       if(ltype != rtype){
-        typeWarning(ltype, rtype);
+        //hw9
+        ltype = typeWarning(ltype, rtype);
       }
 
       //get value from constant folding
@@ -6688,7 +6727,8 @@ void implementOpen() {
 }
 
 void emitMalloc() {
-  createSymbolTableEntry(LIBRARY_TABLE, (int*) "malloc", 0, PROCEDURE, INTSTAR_T, 0, binaryLength);
+  //hw9 changed type
+  createSymbolTableEntry(LIBRARY_TABLE, (int*) "malloc", 0, PROCEDURE, MALLOCSTAR_T, 0, binaryLength);
 
   // on boot levels higher than zero, zalloc falls back to malloc
   // assuming that page frames are zeroed on boot level zero
