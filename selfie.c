@@ -611,7 +611,7 @@ void addDimension(int* entry, int size){
 // 2. word: pointer to element name
 // 3. word: type
 // 4. word: (optional) pointer to struct definition
-void addStructElement(int* entry, int* name, int* type, int* def, int offset){
+void addStructElement(int* entry, int* name, int* type, int* structName, int* def, int offset){
   int* new;
   int* ptr;
  
@@ -630,7 +630,8 @@ void addStructElement(int* entry, int* name, int* type, int* def, int offset){
   setFields(entry, new);
 
   setDefintion(ptr, def);
-  setStructName(ptr, type);
+  setStructName(ptr, structName);
+  setType(ptr, type);
 }
 //hw8 end
 
@@ -723,6 +724,8 @@ void syntaxErrorUnexpected();
 void printType(int type);
 //hw9 changed return type
 int typeWarning(int expected, int found);
+//hw9
+void structTypeControll(int* leftStructType);
 
 int* getVariable(int* variable);
 int  load_variable(int* variable);
@@ -765,6 +768,8 @@ int allocatedMemory = 0; // number of bytes for global variables and strings
 int returnBranches = 0; // fixup chain for return statements
 
 int returnType = 0; // return type of currently parsed procedure
+//hw9
+int* returnStructType = (int*) 0;
 
 int mainJump = 0; // address where JAL instruction to main procedure is
 
@@ -778,6 +783,8 @@ int value               = 0;
 int valueAvailable      = 0;
 //hw7
 int arrayDeklaration    = 0;
+//hw9
+int* structTypeName     = (int*) 0;
 
 // ------------------------- INITIALIZATION ------------------------
 
@@ -790,6 +797,8 @@ void resetParser() {
   //hw6
   value               = 0;
   valueAvailable      = 0;
+  //hw9
+  structTypeName      = (int*) 0;
 }
 
 // -----------------------------------------------------------------
@@ -3131,6 +3140,29 @@ int typeWarning(int expected, int found) {
   return expected;
 }
 
+//hw9 start
+void structTypeControll(int* leftStructType){
+  int same;
+
+  same = stringCompare(leftStructType, structTypeName);
+
+  if(same == 0){
+    printLineNumber((int*) "warning", lineNumber);
+
+    print((int*) "type mismatch, struct pointer of type ");
+
+    print(leftStructType);
+
+    print((int*) " expected but struct pointer of type ");
+
+    printType(structTypeName);
+
+    print((int*) " found");
+
+    println();
+  }
+}
+
 int* getVariable(int* variable) {
   int* entry;
 
@@ -3422,8 +3454,9 @@ int gr_factor() {
   if (symbol == SYM_LPARENTHESIS) {
     getSymbol();
 
-    // cast: "(" "int" [ "*" ] ")"
-    if (symbol == SYM_INT) {
+    // cast: "(" "int" [ "*" ] | "struct" identifier "*"  ")"
+    //hw9
+    if (symbol == SYM_INT | symbol == SYM_STRUCT) {
       hasCast = 1;
 
       cast = gr_type();
@@ -3728,9 +3761,13 @@ int gr_term() {
   int firstValueAvailable;
   int variableFound;
   //hw6 end
+  //hw9
+  int* leftStructType;
   // assert: n = allocatedTemporaries
 
   ltype = gr_factor();
+  //hw9
+  leftStructType = structTypeName;
   //hw6 start
   firstValue=value;
   firstValueAvailable=valueAvailable;
@@ -3755,6 +3792,10 @@ int gr_term() {
     if (ltype != rtype)
       //hw9
       ltype = typeWarning(ltype, rtype);
+
+    //hw9 start
+    if(ltype == STRUCTSTAR_T)
+      structTypeControll(leftStructType);
 
     //hw6 start
     if (operatorSymbol == SYM_ASTERISK) {
@@ -3909,6 +3950,9 @@ int gr_term() {
   //hw6 end
 
   // assert: allocatedTemporaries == n + 1
+  //hw9 
+  structTypeName = leftStructType;
+
   return ltype;
 }
 
@@ -4022,6 +4066,8 @@ int gr_simpleExpression() {
   int firstValueAvailable;
   int variableFound;
   //hw6 end
+  //hw9
+  int* leftStructType;
 
   // assert: n = allocatedTemporaries
 
@@ -4048,6 +4094,8 @@ int gr_simpleExpression() {
   }
 
   ltype = gr_term();
+  //hw9 
+  leftStructType = structTypeName;
 
   //hw6 start
   if(valueAvailable){
@@ -4084,6 +4132,10 @@ int gr_simpleExpression() {
 
     getSymbol();
     rtype = gr_term();
+
+    //hw9 start
+    if(ltype == STRUCTSTAR_T)
+      structTypeControll(leftStructType);
 
     // assert: allocatedTemporaries == n + 2
 
@@ -4236,6 +4288,8 @@ int gr_simpleExpression() {
   //hw6 end
 
   // assert: allocatedTemporaries == n + 1
+  //hw9
+  structTypeName = leftStructType;
 
   return ltype;
 }
@@ -4250,8 +4304,12 @@ int gr_expression(){
   int firstValueAvailable;
   int singleOperand;
   //hw6 end
+  //hw9
+  int* leftStructType;
 
   ltype=gr_compExpression();
+  //hw9
+  leftStructType = structTypeName;
 
   //hw6 start
   singleOperand=1;
@@ -4288,6 +4346,9 @@ int gr_expression(){
         ltype = STRUCTSTAR_T;
     }
     //hw9 end
+    //hw9 start
+    if(ltype == STRUCTSTAR_T)
+      structTypeControll(leftStructType);
 
     //hw6 start
     if(valueAvailable){
@@ -4314,6 +4375,8 @@ int gr_expression(){
     }
   }
   //hw6 end
+  //hw9
+  structTypeName = leftStructType;
 
   return ltype;
 }
@@ -4329,10 +4392,14 @@ int gr_compExpression() {
   int firstValueAvailable;
   int singleOperand;
   //hw6 end
+  //hw9
+  int* leftStructType;
 
   // assert: n = allocatedTemporaries
   //hw4 
   ltype = gr_shiftExpression();
+  //hw9
+  leftStructType = structTypeName;
 
   // assert: allocatedTemporaries == n + 1
   //hw6 start
@@ -4374,6 +4441,10 @@ int gr_compExpression() {
     if (ltype != rtype)
       //hw9
       ltype = typeWarning(ltype, rtype);
+
+    //hw9 start
+    if(ltype == STRUCTSTAR_T)
+      structTypeControll(leftStructType);
 
     if (operatorSymbol == SYM_EQUALITY) {
       // subtract, if result = 0 then 1, else 0
@@ -4443,6 +4514,8 @@ int gr_compExpression() {
   //hw6 end
 
   // assert: allocatedTemporaries == n + 1
+  //hw9
+  structTypeName = leftStructType;
 
   return ltype;
 }
@@ -4643,6 +4716,11 @@ void gr_return() {
       //hw9
       returnType = typeWarning(returnType, type);
 
+    //hw9 start
+    if(returnStructType != (int*) 0)
+      structTypeControll(returnStructType);
+    //hw9 end
+
     // save value of expression in return register
     emitRFormat(OP_SPECIAL, REG_ZR, currentTemporary(), REG_V0, FCT_ADDU);
 
@@ -4669,6 +4747,8 @@ void gr_statement() {
   int* variableOrProcedureName;
   int* entry;
   int selectorNum;
+  //hw9
+  int* leftStructType;
 
   // assert: allocatedTemporaries == 0;
 
@@ -4874,6 +4954,13 @@ void gr_statement() {
       entry = getVariable(variableOrProcedureName);
 
       ltype = getVariableType(entry);
+      //hw9 start
+      if(ltype == STRUCTSTAR_T){
+        leftStructType = getStructName(getTypeStruct(entry));
+      }else{
+        leftStructType = (int*) 0;
+      }
+      //hw9 end
 
       getSymbol();
 
@@ -4889,6 +4976,10 @@ void gr_statement() {
       if (ltype != rtype)
         //hw9
         ltype = typeWarning(ltype, rtype);
+
+      //hw9 start
+      if(ltype == STRUCTSTAR_T)
+        structTypeControll(leftStructType);
 
       emitIFormat(OP_SW, getScope(entry), currentTemporary(), getAddress(entry));
 
@@ -4917,6 +5008,12 @@ void gr_statement() {
       }
 
       ltype = getVariableType(entry);
+      //hw9 start
+      if(ltype == STRUCTSTAR_T)
+        leftStructType = getStructName(getTypeStruct(entry));
+      else
+        leftStructType = (int*) 0;
+      //hw9 end
       
       //initialize address register with startaddress of array
       load_integer(getAddress(entry));
@@ -4944,6 +5041,11 @@ void gr_statement() {
         //hw9
         ltype = typeWarning(ltype, rtype);
       }
+
+      //hw9 start
+      if(ltype == STRUCTSTAR_T)
+        structTypeControll(leftStructType);
+      //hw9 end
 
       //get value from constant folding
       if(valueAvailable){
@@ -4999,8 +5101,27 @@ int gr_type() {
 
       getSymbol();
     }
-  } else
-    syntaxErrorSymbol(SYM_INT);
+    //hw9 start
+  } else if(symbol == SYM_STRUCT){
+    getSymbol();
+
+    if(symbol != SYM_IDENTIFIER)
+      syntaxErrorSymbol(SYM_IDENTIFIER);
+    
+    structTypeName = identifier;
+
+    getSymbol();
+
+    if(symbol != SYM_ASTERISK)
+      syntaxErrorSymbol(SYM_ASTERISK);
+
+    getSymbol();
+
+    type = STRUCTSTAR_T;
+
+  }else
+    syntaxErrorMessage((int*) "invalid type");
+  //hw9 end
 
   return type;
 }
@@ -5222,11 +5343,16 @@ void gr_procedure(int* procedure, int type) {
     returnBranches = 0;
 
     returnType = type;
-
+    //hw9 start
+    if(entry != (int*) 0)
+      returnStructType = getStructName(getTypeStruct(entry));
+    //hw9 end
     while (isNotRbraceOrEOF())
       gr_statement();
 
     returnType = 0;
+    //hw9
+    returnStructType = (int*) 0;
 
     if (symbol == SYM_RBRACE)
       getSymbol();
@@ -5341,41 +5467,23 @@ void gr_structDef(int* structName){
 
   offset = 0;
   while(lookForType() == 0){
-    if(symbol == SYM_STRUCT){
-
-      getSymbol();
-
-      if(symbol == SYM_IDENTIFIER){
-        structName = identifier;
-      }else{
-        syntaxErrorSymbol(SYM_IDENTIFIER);
-      }
+    type = gr_type();
+    
+    if(type == STRUCTSTAR_T){
+      structName = structTypeName;
       structEntry = searchSymbolTable(global_symbol_table, structName, STRUCT);
-
-      getSymbol();
-      if(symbol != SYM_ASTERISK)
-        syntaxErrorSymbol(SYM_ASTERISK);
-
-      getSymbol();
-      if(symbol == SYM_IDENTIFIER){
-        variableName = identifier;
-      }else{
-        syntaxErrorSymbol(SYM_IDENTIFIER);
-      }
-
-      addStructElement(entry, variableName, STRUCTSTAR_T, structEntry, offset); 
-
     }else{
-      type = gr_type();
-
-      if(symbol == SYM_IDENTIFIER){
-        variableName = identifier;
-      }else{
-        syntaxErrorSymbol(SYM_IDENTIFIER);
-      }
-
-      addStructElement(entry, variableName, type, (int*) 0, offset);
+      structName = (int*) 0;
+      structEntry = (int*) 0;
     }
+      
+    if(symbol == SYM_IDENTIFIER){
+      variableName = identifier;
+    }else{
+      syntaxErrorSymbol(SYM_IDENTIFIER);
+    }
+
+    addStructElement(entry, variableName, type, structName, structEntry, offset); 
 
     getSymbol();
     if(symbol != SYM_SEMICOLON)
