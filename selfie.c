@@ -342,6 +342,8 @@ int SYM_RSQRBRACKET  = 34; //]
 //hw7 end
 //hw8
 int SYM_STRUCT       = 35; //struct
+//hw9
+int SYM_ARROW        = 36; //->
 
 int* SYMBOLS; // strings representing symbols
 
@@ -378,8 +380,8 @@ int  sourceFD   = 0;        // file descriptor of open source file
 // ------------------------- INITIALIZATION ------------------------
 
 void initScanner () {
-  //hw4 hw5 hw7 hw8
-  SYMBOLS = malloc(36 * SIZEOFINTSTAR);
+  //hw4 hw5 hw7 hw8 hw9
+  SYMBOLS = malloc(37 * SIZEOFINTSTAR);
 
   *(SYMBOLS + SYM_IDENTIFIER)   = (int) "identifier";
   *(SYMBOLS + SYM_INTEGER)      = (int) "integer";
@@ -424,6 +426,8 @@ void initScanner () {
   //hw7 end
   //hw8
   *(SYMBOLS + SYM_STRUCT)       = (int) "struct";
+  //hw9
+  *(SYMBOLS + SYM_ARROW)        = (int) "->";
 
   character = CHAR_EOF;
   symbol    = SYM_EOF;
@@ -2534,7 +2538,14 @@ void getSymbol() {
       } else if (character == CHAR_DASH) {
         getCharacter();
 
-        symbol = SYM_MINUS;
+        //hw9 start
+        if(character == CHAR_GT){
+          symbol = SYM_ARROW;
+
+          getCharacter();
+        }else
+          symbol = SYM_MINUS;
+        //hw9 end
 
       } else if (character == CHAR_ASTERISK) {
         getCharacter();
