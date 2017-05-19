@@ -538,6 +538,8 @@ int* createSymbolTableEntry(int which, int* string, int line, int class, int typ
 
 int* searchSymbolTable(int* entry, int* string, int class);
 int* getScopedSymbolTableEntry(int* string, int class);
+//hw9
+int* getStructField(int* structName, int* fieldName);
 
 int isUndefinedProcedure(int* entry);
 int reportUndefinedProcedures();
@@ -606,11 +608,7 @@ void addDimension(int* entry, int size){
   setDimensions(entry, new);
 }
 
-//linked list for struct elements containing
-// 1. word: pointer to next entry
-// 2. word: pointer to element name
-// 3. word: type
-// 4. word: (optional) pointer to struct definition
+
 void addStructElement(int* entry, int* name, int* type, int* structName, int* def, int offset){
   int* new;
   int* ptr;
@@ -2771,6 +2769,30 @@ int* searchSymbolTable(int* entry, int* string, int class) {
 
   return (int*) 0;
 }
+
+//hw9 start
+int* getStructField(int* structName, int* fieldName){
+  int* structEntry;
+  int* name;
+
+  structEntry = global_symbol_table;
+  structEntry = searchSymbolTable(structEntry, structName, STRUCT);
+
+  if(structEntry == (int*) 0)
+    return structEntry;
+
+  structEntry = getTypeStruct(structEntry);
+  structEntry = getFields(structEntry);
+
+  while(structEntry != (int*) 0){
+    name = getFieldName(structEntry);
+    if(stringCompare(name, fieldName))
+      return structEntry;
+    structEntry = getNextEntry(structEntry);
+  }
+  return structEntry;
+}
+//hw9 end
 
 int* getScopedSymbolTableEntry(int* string, int class) {
   int* entry;
