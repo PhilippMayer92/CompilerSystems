@@ -5051,6 +5051,38 @@ void gr_statement() {
 
         numberOfAssignments = numberOfAssignments + 1;
       //hw7 end
+      //hw9 start
+      }else if(symbol == SYM_ARROW){
+
+        ltype = gr_structAccess(identifier);
+
+        if(ltype != INTSTAR_T)
+          typeWarning(INTSTAR_T, ltype);
+
+        //load pointer from specified struct position
+        emitIFormat(OP_LW, currentTemporary(), currentTemporary(), 0);
+
+        if(symbol != SYM_ASSIGN)
+          syntaxErrorSymbol(SYM_ASSIGN);
+
+        getSymbol();
+
+        rtype = gr_expression();
+
+        if(rtype != INT_T)
+          typeWarning(INT_T, rtype);
+
+        if(valueAvailable){
+          load_integer(value);
+          valueAvailable = 0;
+        }
+
+        //store value to pointed address
+        emitIFormat(OP_SW, previousTemporary(), currentTemporary(), 0);
+        tfree(2);
+
+        numberOfAssignments = numberOfAssignments + 1;
+        //hw9 end
       } else {
         syntaxErrorSymbol(SYM_ASSIGN);
 
@@ -5253,8 +5285,40 @@ void gr_statement() {
         syntaxErrorSymbol(SYM_SEMICOLON);
       }
       getSymbol();
-
       //hw7 end
+      //hw9 start
+    }else if(symbol == SYM_ARROW){
+      
+      ltype = gr_structAccess(identifier);
+
+      leftStructType = structTypeName;
+
+      if(symbol != SYM_ASSIGN)
+        syntaxErrorSymbol(SYM_ASSIGN);
+
+      getSymbol();
+
+      rtype = gr_expression();
+
+      if(ltype != rtype)
+        typeWarning(ltype, rtype);
+
+      if(ltype == STRUCTSTAR_T)
+        structTypeControll(leftStructType);
+
+      if(valueAvailable){
+        load_integer(value);
+        valueAvailable = 0;
+      }
+
+      getSymbol();
+
+      //store value to struct field
+      emitIFormat(OP_SW, previousTemporary(), currentTemporary(), 0);
+      tfree(2);
+      checkpoint(5);
+      numberOfAssignments = numberOfAssignments + 1;
+      //hw9 end
     } else{
       syntaxErrorUnexpected();
     }
