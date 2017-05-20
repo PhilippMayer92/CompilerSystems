@@ -163,8 +163,10 @@ int CHAR_LSQRBRACKET  = '[';
 int CHAR_RSQRBRACKET  = ']';
 //hw7 end
 
-int SIZEOFINT     = 4; // must be the same as WORDSIZE
-int SIZEOFINTSTAR = 4; // must be the same as WORDSIZE
+int SIZEOFINT         = 4; // must be the same as WORDSIZE
+int SIZEOFINTSTAR     = 4; // must be the same as WORDSIZE
+//hw9
+int SIZEOFSTRUCTSTAR  = 4; // must be the same as WORDSIZE
 
 //hw7
 int power_of_two_table[31];
@@ -480,7 +482,7 @@ void setNextEntry(int* entry, int* next)    { *entry       = (int) next; }
 void setString(int* entry, int* identifier) { *(entry + 1) = (int) identifier; }
 void setLineNumber(int* entry, int line)    { *(entry + 2) = line; }
 void setClass(int* entry, int class)        { *(entry + 3) = class; }
-void setTypeStruct(int* entry, int type)    { *(entry + 4) = type; }
+void setTypeStruct(int* entry, int* type)   { *(entry + 4) = (int) type; }
 void setValue(int* entry, int value)        { *(entry + 5) = value; }
 void setAddress(int* entry, int address)    { *(entry + 6) = address; }
 void setScope(int* entry, int scope)        { *(entry + 7) = scope; }
@@ -756,6 +758,8 @@ int gr_shiftExpression();
 int gr_selector(int selectorNum, int* entry);
 //hw8
 void gr_structDef(int* structName);
+//hw9
+int gr_structAccess(int* variableName);
 
 // ------------------------ GLOBAL VARIABLES -----------------------
 
@@ -2771,15 +2775,11 @@ int* searchSymbolTable(int* entry, int* string, int class) {
 }
 
 //hw9 start
-int* getStructField(int* structName, int* fieldName){
-  int* structEntry;
+int* getStructField(int* structEntry, int* fieldName){
   int* name;
+  int* structName;
 
-  structEntry = global_symbol_table;
-  structEntry = searchSymbolTable(structEntry, structName, STRUCT);
-
-  if(structEntry == (int*) 0)
-    return structEntry;
+  structName = getString(structEntry);
 
   structEntry = getTypeStruct(structEntry);
   structEntry = getFields(structEntry);
@@ -2789,6 +2789,15 @@ int* getStructField(int* structName, int* fieldName){
     if(stringCompare(name, fieldName))
       return structEntry;
     structEntry = getNextEntry(structEntry);
+  }
+  if(structEntry == (int*) 0){
+    printLineNumber((int*) "error", lineNumber);
+    print((int*) "no field ");
+    print(fieldName);
+    print((int*) " defined for struct ");
+    print(structName);
+    println();
+    exit(-1);
   }
   return structEntry;
 }
@@ -3167,7 +3176,6 @@ void structTypeControll(int* leftStructType){
   int same;
 
   same = stringCompare(leftStructType, structTypeName);
-
   if(same == 0){
     printLineNumber((int*) "warning", lineNumber);
 
@@ -3447,6 +3455,142 @@ int gr_call(int* procedure) {
   return type;
 }
 
+//hw9 start
+int gr_structAccess(int* variableName){
+  int* variableEntry;
+  int* definitionEntry;
+  int* fieldEntry;
+  int* definitionName;
+  int type;
+  int offset;
+
+  variableEntry = global_symbol_table;
+  variableEntry = searchSymbolTable(variableEntry, variableName, VARIABLE);
+
+  //variable isn't declared
+  if(variableEntry == (int*) 0){
+    printLineNumber((int*) "error", lineNumber);
+    print((int*) "variable ");
+    print(variableName);
+    print((int*) " of type struct* undeclared");
+    println();
+
+    exit(-1);
+  }
+
+  type = getVariableType(variableEntry);
+  //variable isn't of type structstar
+  if(type != STRUCTSTAR_T){
+    printLineNumber((int*) "error", lineNumber);
+    print((int*) "illegal field access for variable ");
+    print(variableName);
+    print((int*) " of type ");
+    printType(type);
+    println();
+
+    exit(-1);
+  }
+
+  //find struct pointer
+  offset = getAddress(variableEntry);
+  load_integer(offset);
+  emitRFormat(OP_SPECIAL, getScope(variableEntry), currentTemporary(), currentTemporary(), FCT_ADDU);
+  //load struct pointer
+  emitIFormat(OP_LW, currentTemporary(), currentTemporary(), 0);
+
+  definitionEntry = getDefintion(getTypeStruct(variableEntry));
+  //definition for struct type unset
+  if(definitionEntry == (int*) 0){
+    definitionName = getStructName(getTypeStruct(variableEntry));
+    definitionEntry = searchSymbolTable(global_symbol_table, definitionName, STRUCT);
+    if(definitionEntry != (int*) 0){
+      //set definition
+      setDefintion(getTypeStruct(variableEntry), definitionEntry);
+    }else{
+      //definition not found
+      printLineNumber((int*) "error", lineNumber);
+      print((int*) "type of variable ");
+      print(variableName);
+      print((int*) " undefined");
+      println();
+
+      exit(-1);
+    }
+  }
+
+  getSymbol();
+
+  if(symbol != SYM_IDENTIFIER)
+    syntaxErrorSymbol(SYM_IDENTIFIER);
+
+  fieldEntry = getStructField(definitionEntry, identifier);
+  offset = getFieldOffset(fieldEntry) * WORDSIZE;
+  type = getType(getFieldType(fieldEntry));
+
+  //add field offset to struct pointer
+  load_integer(offset);
+  emitRFormat(OP_SPECIAL, currentTemporary(), previousTemporary(), previousTemporary(), FCT_ADDU);
+  tfree(1);
+
+  getSymbol();
+
+  while(symbol == SYM_ARROW){
+    variableName = getFieldName(fieldEntry);
+    if(type != STRUCTSTAR_T){
+      printLineNumber((int*) "error", lineNumber);
+      print((int*) "illegal field access for variable ");
+      print(variableName);
+      print((int*) " of type ");
+      printType(type);
+      println();
+
+      exit(-1);
+    }
+
+    definitionEntry = getDefintion(getFieldType(fieldEntry));
+    //definition for struct type unset
+    if(definitionEntry == (int*) 0){
+      definitionName = getStructName(getTypeStruct(variableEntry));
+      definitionEntry = searchSymbolTable(global_symbol_table, definitionName, STRUCT);
+      if(definitionEntry != (int*) 0){
+        //set definition
+        setDefintion(getTypeStruct(variableEntry), definitionEntry);
+      }else{
+        //definition not found
+        printLineNumber((int*) "error", lineNumber);
+        print((int*) "type of variable ");
+        print(variableName);
+        print((int*) " undefined");
+        println();
+
+        exit(-1);
+      }
+    }
+
+    getSymbol();
+
+    if(symbol != SYM_IDENTIFIER)
+      syntaxErrorSymbol(SYM_IDENTIFIER);
+
+    //load pointer to next struct
+    emitIFormat(OP_LW, currentTemporary(), currentTemporary(), 0);
+
+    fieldEntry = getStructField(definitionEntry, identifier);
+    offset = getFieldOffset(fieldEntry) * 4;
+    type = getType(getFieldType(fieldEntry));
+
+    //add field offset to struct pointer
+    load_integer(offset);
+    emitRFormat(OP_SPECIAL, currentTemporary(), previousTemporary(), previousTemporary(), FCT_ADDU);
+    tfree(1);
+
+    getSymbol();
+  }
+
+  return type;
+}
+//hw9 end
+
 int gr_factor() {
   int hasCast;
   int cast;
@@ -3721,7 +3865,14 @@ int gr_factor() {
       }
 
       //hw7 end
-    } else
+      //hw9 start
+      } else if(symbol == SYM_ARROW){
+
+        type = gr_structAccess(variableOrProcedureName);
+
+        emitIFormat(OP_LW, currentTemporary(), currentTemporary(), 0);
+        //hw9 end
+      } else
       // variable access: identifier
       type = load_variable(variableOrProcedureName);
 
@@ -4773,7 +4924,6 @@ void gr_statement() {
   int* leftStructType;
 
   // assert: allocatedTemporaries == 0;
-
   while (lookForStatement()) {
     syntaxErrorUnexpected();
 
@@ -4952,6 +5102,7 @@ void gr_statement() {
   }
   // identifier [selector] "=" expression | call
   else if (symbol == SYM_IDENTIFIER) {
+
     variableOrProcedureName = identifier;
 
     getSymbol();
@@ -4994,7 +5145,6 @@ void gr_statement() {
         valueAvailable=0;
       }
       //hw6 end
-
       if (ltype != rtype)
         //hw9
         ltype = typeWarning(ltype, rtype);
@@ -5472,7 +5622,7 @@ void gr_structDef(int* structName){
   entry = searchSymbolTable(global_symbol_table, structName, STRUCT);
   
   if((int) entry != 0){
-    // global variable already declared or defined
+    // global struct already defined
     printLineNumber((int*) "warning", lineNumber);
     print((int*) "redefinition of struct ");
     print(structName);
@@ -5539,6 +5689,8 @@ void gr_cstar() {
   //hw7 end
   //hw8
   int* structName;
+  //hw9
+  int* structDef;
   
   while (symbol != SYM_EOF) {
     while (lookForType()) {
@@ -5592,7 +5744,7 @@ void gr_cstar() {
         if (entry == (int*) 0) {
           allocatedMemory = allocatedMemory + SIZEOFINTSTAR;
 
-          createSymbolTableEntry(GLOBAL_TABLE, variableOrProcedureName, lineNumber, VARIABLE, STRUCTSTAR_T, 0, -allocatedMemory);
+          entry = createSymbolTableEntry(GLOBAL_TABLE, variableOrProcedureName, lineNumber, VARIABLE, STRUCTSTAR_T, 0, -allocatedMemory);
         } else {
           // global variable already declared or defined
           printLineNumber((int*) "warning", currentLineNumber);
@@ -5601,6 +5753,12 @@ void gr_cstar() {
           print((int*) " ignored");
           println();
         }
+
+        //set definition and type name
+        structDef = searchSymbolTable(global_symbol_table, structName, STRUCT);
+        entry = getTypeStruct(entry);
+        setStructName(entry, structName);
+        setDefintion(entry, structDef);
 
         getSymbol();
         if(symbol != SYM_SEMICOLON)

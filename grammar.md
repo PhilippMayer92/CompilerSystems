@@ -39,7 +39,9 @@ cstar               = { type identifier [ "=" [ cast ] [ "-" ] literal ] ";" |
                       ( "void" | type ) identifier procedure | type identifier { selector } ";" |
                       "struct" identifier ( "*" identifier | structDef ) ";" } .
 
-structDef           = "{" { ( type | "struct" identifier "*" ) identifier ";" } "}" .
+structDef           = "{" { type identifier ";" } "}" .
+
+structAccess        = { "->" identifier } .
 
 type                = "int" [ "*" ] | "struct" identifier "*" .
 
@@ -71,7 +73,7 @@ simpleExpression(v) = [ "-" ] term(v) { ( "+" | "-" ) term(v) } .
 term(v)             = factor(v) { ( "*" | "/" | "%" ) factor(v) } .
 
 factor(v)           = [ cast ]
-                      ( [ "*" | "~"] ( identifier { selector } | "(" expression(v) ")" ) |
+                      ( [ "*" | "~"] ( identifier [ { selector } | structAccess ] | "(" expression(v) ")" ) |
                       call |
                       literal(v) |
                       string ) .
