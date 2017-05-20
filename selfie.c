@@ -3467,6 +3467,7 @@ int gr_structAccess(int* variableName){
   variableEntry = global_symbol_table;
   variableEntry = searchSymbolTable(variableEntry, variableName, VARIABLE);
 
+
   //variable isn't declared
   if(variableEntry == (int*) 0){
     printLineNumber((int*) "error", lineNumber);
@@ -5316,7 +5317,7 @@ void gr_statement() {
       //store value to struct field
       emitIFormat(OP_SW, previousTemporary(), currentTemporary(), 0);
       tfree(2);
-      checkpoint(5);
+
       numberOfAssignments = numberOfAssignments + 1;
       //hw9 end
     } else{
@@ -5344,7 +5345,7 @@ void gr_statement() {
 
 int gr_type() {
   int type;
-
+;
   type = INT_T;
 
   if (symbol == SYM_INT) {
@@ -5357,6 +5358,7 @@ int gr_type() {
     }
     //hw9 start
   } else if(symbol == SYM_STRUCT){
+
     getSymbol();
 
     if(symbol != SYM_IDENTIFIER)
@@ -5387,10 +5389,12 @@ void gr_variable(int offset) {
 
   if (symbol == SYM_IDENTIFIER) {
     // TODO: check if identifier has already been declared
+
     createSymbolTableEntry(LOCAL_TABLE, identifier, lineNumber, VARIABLE, type, 0, offset);
 
     getSymbol();
   } else {
+
     syntaxErrorSymbol(SYM_IDENTIFIER);
 
     createSymbolTableEntry(LOCAL_TABLE, (int*) "missing variable name", lineNumber, VARIABLE, type, 0, offset);
@@ -5580,7 +5584,7 @@ void gr_procedure(int* procedure, int type) {
 
     localVariables = 0;
 
-    while (symbol == SYM_INT) {
+    while (symbol == SYM_INT | symbol == SYM_STRUCT) {
       localVariables = localVariables + 1;
 
       gr_variable(-localVariables * WORDSIZE);
@@ -5598,8 +5602,10 @@ void gr_procedure(int* procedure, int type) {
 
     returnType = type;
     //hw9 start
+
     if(entry != (int*) 0)
       returnStructType = getStructName(getTypeStruct(entry));
+
     //hw9 end
     while (isNotRbraceOrEOF())
       gr_statement();
