@@ -3479,6 +3479,7 @@ int gr_structAccess(int* variableName){
   }
 
   type = getVariableType(variableEntry);
+
   //variable isn't of type structstar
   if(type != STRUCTSTAR_T){
     printLineNumber((int*) "error", lineNumber);
@@ -3699,6 +3700,16 @@ int gr_factor() {
         
         type = INT_T;
       //hw7 end
+        //hw9 start
+      } else if(symbol == SYM_ARROW){
+       
+        type = gr_structAccess(identifier);
+        
+        if(type != INTSTAR_T)
+          typeWarning(INTSTAR_T, type);
+        
+        emitIFormat(OP_LW, currentTemporary(), currentTemporary(), 0);
+        //hw9 end
       }else
         type = load_variable(identifier);
 
@@ -3778,6 +3789,13 @@ int gr_factor() {
           emitIFormat(OP_LW, currentTemporary(), currentTemporary(), 0);
         }
       //hw7 end
+      //hw9 start
+      }else if(symbol == SYM_ARROW){
+
+        type = gr_structAccess(identifier);
+
+        emitIFormat(OP_LW, currentTemporary(), currentTemporary(), 0);
+        //hw9 end
       }else
         type = load_variable(identifier);
 
