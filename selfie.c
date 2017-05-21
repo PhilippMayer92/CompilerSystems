@@ -5175,7 +5175,6 @@ void gr_statement() {
         getSymbol();
       else
         syntaxErrorSymbol(SYM_SEMICOLON);
-
     // identifier = expression
     } else if (symbol == SYM_ASSIGN) {
       entry = getVariable(variableOrProcedureName);
@@ -5219,6 +5218,7 @@ void gr_statement() {
         getSymbol();
       else
         syntaxErrorSymbol(SYM_SEMICOLON);
+
       //hw7 start
       // identifier [ selector ] = expression | call;
     }else if(symbol == SYM_LSQRBRACKET){
@@ -5329,6 +5329,7 @@ void gr_statement() {
     } else{
       syntaxErrorUnexpected();
     }
+
   }
   // while statement?
   else if (symbol == SYM_WHILE) {
@@ -5844,33 +5845,41 @@ void gr_cstar() {
         }else
           syntaxErrorSymbol(SYM_IDENTIFIER);
 
-        entry = searchSymbolTable(global_symbol_table, variableOrProcedureName, VARIABLE);
+        //hw9 start
+        getSymbol();
 
-        if (entry == (int*) 0) {
-          allocatedMemory = allocatedMemory + SIZEOFINTSTAR;
+        if(symbol == SYM_SEMICOLON){
+          entry = searchSymbolTable(global_symbol_table, variableOrProcedureName, VARIABLE);
 
-          entry = createSymbolTableEntry(GLOBAL_TABLE, variableOrProcedureName, lineNumber, VARIABLE, STRUCTSTAR_T, 0, -allocatedMemory);
-        } else {
-          // global variable already declared or defined
-          printLineNumber((int*) "warning", currentLineNumber);
-          print((int*) "redefinition of global variable ");
-          print(variableOrProcedureName);
-          print((int*) " ignored");
-          println();
-        }
+          if (entry == (int*) 0) {
+            allocatedMemory = allocatedMemory + SIZEOFINTSTAR;
+
+            entry = createSymbolTableEntry(GLOBAL_TABLE, variableOrProcedureName, lineNumber, VARIABLE, STRUCTSTAR_T, 0, -allocatedMemory);
+          } else {
+            // global variable already declared or defined
+            printLineNumber((int*) "warning", currentLineNumber);
+            print((int*) "redefinition of global variable ");
+            print(variableOrProcedureName);
+            print((int*) " ignored");
+            println();
+          }
+
+          getSymbol();
+
+        }else if(symbol == SYM_LPARENTHESIS){
+          gr_procedure(variableOrProcedureName, STRUCTSTAR_T);
+
+          entry = searchSymbolTable(global_symbol_table, variableOrProcedureName, PROCEDURE);
+
+        }else
+          syntaxErrorUnexpected();
 
         //set definition and type name
         structDef = searchSymbolTable(global_symbol_table, structName, STRUCT);
         entry = getTypeStruct(entry);
         setStructName(entry, structName);
         setDefintion(entry, structDef);
-
-        getSymbol();
-        if(symbol != SYM_SEMICOLON)
-          syntaxErrorSymbol(SYM_SEMICOLON);
-
-        getSymbol();
-        
+        //hw9 end 
       }else{
 
         gr_structDef(structName);

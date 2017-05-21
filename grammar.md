@@ -35,8 +35,8 @@ letter = "a" | ... | "z" | "A" | ... | "Z" .
 C\* Grammar:
 
 ```
-cstar               = { type identifier [ "=" [ cast ] [ "-" ] literal ] ";" |
-                      ( "void" | type ) identifier procedure | type identifier { selector } ";" |
+cstar               = { "int" [ "*" ] identifier [ "=" [ cast ] [ "-" ] literal ] ";" |
+                      ( "void" | type ) identifier procedure | "int" [ "*" ] identifier { selector } ";" |
                       "struct" identifier ( "*" identifier | structDef ) ";" } .
 
 structDef           = "{" { type identifier ";" } "}" .
@@ -57,7 +57,7 @@ procedure           = "(" [ variable { "," variable } ] ")"
 variable            = type identifier .
 
 statement           = call ";" | while | if | return ";" |
-                       ( [ "*" ] identifier { selector } | "*" "(" expression ")" )
+                       ( [ "*" ] identifier [ { selector } | structAccess ] | "*" "(" expression ")" )
                        "=" expression ";" .
 
 call                = identifier "(" [ expression { "," expression } ] ")" .
