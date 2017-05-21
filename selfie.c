@@ -3464,9 +3464,13 @@ int gr_structAccess(int* variableName){
   int type;
   int offset;
 
-  variableEntry = global_symbol_table;
+  variableEntry = local_symbol_table;
   variableEntry = searchSymbolTable(variableEntry, variableName, VARIABLE);
 
+  if(variableEntry == (int*) 0){
+    variableEntry = global_symbol_table;
+    variableEntry = searchSymbolTable(variableEntry, variableName, VARIABLE);
+  }
 
   //variable isn't declared
   if(variableEntry == (int*) 0){
@@ -5107,7 +5111,6 @@ void gr_statement() {
         valueAvailable=0;
       }
       //hw6 end
-
       if (ltype != INTSTAR_T)
         //hw9
         ltype = typeWarning(INTSTAR_T, ltype);
@@ -5178,9 +5181,10 @@ void gr_statement() {
       entry = getVariable(variableOrProcedureName);
 
       ltype = getVariableType(entry);
+
       //hw9 start
       if(ltype == STRUCTSTAR_T){
-        leftStructType = getStructName(getTypeStruct(entry));
+        leftStructType = getStructName(getTypeStruct(entry)); //hereiam
       }else{
         leftStructType = (int*) 0;
       }
@@ -5203,6 +5207,7 @@ void gr_statement() {
       //hw9 start
       if(ltype == STRUCTSTAR_T)
         structTypeControll(leftStructType);
+      //hw9 end
 
       emitIFormat(OP_SW, getScope(entry), currentTemporary(), getAddress(entry));
 
@@ -5231,13 +5236,14 @@ void gr_statement() {
       }
 
       ltype = getVariableType(entry);
+
       //hw9 start
       if(ltype == STRUCTSTAR_T)
         leftStructType = getStructName(getTypeStruct(entry));
       else
         leftStructType = (int*) 0;
       //hw9 end
-      
+
       //initialize address register with startaddress of array
       load_integer(getAddress(entry));
       emitRFormat(OP_SPECIAL, getScope(entry), currentTemporary(), currentTemporary(), FCT_ADDU);
@@ -5289,7 +5295,7 @@ void gr_statement() {
       //hw7 end
       //hw9 start
     }else if(symbol == SYM_ARROW){
-      
+
       ltype = gr_structAccess(identifier);
 
       leftStructType = structTypeName;
@@ -5341,11 +5347,12 @@ void gr_statement() {
     else
       syntaxErrorSymbol(SYM_SEMICOLON);
   }
+
 }
 
 int gr_type() {
   int type;
-;
+
   type = INT_T;
 
   if (symbol == SYM_INT) {
@@ -5384,13 +5391,21 @@ int gr_type() {
 
 void gr_variable(int offset) {
   int type;
+  int* entry;
+  int* def;
 
   type = gr_type();
 
   if (symbol == SYM_IDENTIFIER) {
     // TODO: check if identifier has already been declared
-
-    createSymbolTableEntry(LOCAL_TABLE, identifier, lineNumber, VARIABLE, type, 0, offset);
+    //hw9 start
+    entry = createSymbolTableEntry(LOCAL_TABLE, identifier, lineNumber, VARIABLE, type, 0, offset);
+    if(type == STRUCTSTAR_T){
+      setStructName(getTypeStruct(entry), structTypeName);
+      def = searchSymbolTable(global_symbol_table, structTypeName, STRUCT);
+      setDefintion(getTypeStruct(entry), def);
+    }
+    //hw9 end
 
     getSymbol();
   } else {
@@ -5399,6 +5414,7 @@ void gr_variable(int offset) {
 
     createSymbolTableEntry(LOCAL_TABLE, (int*) "missing variable name", lineNumber, VARIABLE, type, 0, offset);
   }
+
 }
 
 int gr_initialization(int type) {
@@ -5542,6 +5558,7 @@ void gr_procedure(int* procedure, int type) {
 
   } else if (symbol == SYM_LBRACE) {
     // this is a procedure definition
+
     if (entry == (int*) 0)
       // procedure never called nor declared nor defined
       createSymbolTableEntry(GLOBAL_TABLE, procedure, lineNumber, PROCEDURE, type, 0, binaryLength);
