@@ -786,6 +786,7 @@ int valueAvailable      = 0;
 //hw7
 int arrayDeklaration    = 0;
 //hw9
+//used to pass additional type information for struct pointers through the parser
 int* structTypeName     = (int*) 0;
 
 // ------------------------- INITIALIZATION ------------------------
@@ -2775,6 +2776,7 @@ int* searchSymbolTable(int* entry, int* string, int class) {
 }
 
 //hw9 start
+//searches in the given structEntry for the field with name fieldName
 int* getStructField(int* structEntry, int* fieldName){
   int* name;
   int* structName;
@@ -2784,12 +2786,14 @@ int* getStructField(int* structEntry, int* fieldName){
   structEntry = getTypeStruct(structEntry);
   structEntry = getFields(structEntry);
 
+  //search through field list an compare identifiers
   while(structEntry != (int*) 0){
     name = getFieldName(structEntry);
     if(stringCompare(name, fieldName))
       return structEntry;
     structEntry = getNextEntry(structEntry);
   }
+  //field not found
   if(structEntry == (int*) 0){
     printLineNumber((int*) "error", lineNumber);
     print((int*) "no field ");
@@ -3142,12 +3146,15 @@ void printType(int type) {
 }
 
 //hw9 changed return type
+//returns the corrected type if at least one type was MALLOCSTAR_T
 int typeWarning(int expected, int found) {
   //hw9 start
   if(expected == INTSTAR_T | found == INTSTAR_T){
+    //cast MALLOCSTAR to INTSTAR
     if(found == MALLOCSTAR_T | expected == MALLOCSTAR_T)
       return INTSTAR_T;
   }else if(expected == STRUCTSTAR_T | found == STRUCTSTAR_T){
+    //cast MALLOCSTAR to STRUCTSTAR
     if(found == MALLOCSTAR_T | expected == MALLOCSTAR_T)
       return STRUCTSTAR_T;
   }
@@ -3172,6 +3179,7 @@ int typeWarning(int expected, int found) {
 }
 
 //hw9 start
+//checks whether two struct pointers have the same structtype
 void structTypeControll(int* leftStructType){
   int same;
 
@@ -3192,6 +3200,7 @@ void structTypeControll(int* leftStructType){
     println();
   }
 }
+//hw9 end
 
 int* getVariable(int* variable) {
   int* entry;
@@ -3456,6 +3465,7 @@ int gr_call(int* procedure) {
 }
 
 //hw9 start
+//computes the address of a struct field called with ->
 int gr_structAccess(int* variableName){
   int* variableEntry;
   int* definitionEntry;
@@ -3464,9 +3474,11 @@ int gr_structAccess(int* variableName){
   int type;
   int offset;
 
+  //at first look for local struct pointers
   variableEntry = local_symbol_table;
   variableEntry = searchSymbolTable(variableEntry, variableName, VARIABLE);
 
+  //if unfound look for global struct pointers
   if(variableEntry == (int*) 0){
     variableEntry = global_symbol_table;
     variableEntry = searchSymbolTable(variableEntry, variableName, VARIABLE);
@@ -3504,11 +3516,14 @@ int gr_structAccess(int* variableName){
   //load struct pointer
   emitIFormat(OP_LW, currentTemporary(), currentTemporary(), 0);
 
+  //get definition of used structtype
   definitionEntry = getDefintion(getTypeStruct(variableEntry));
-  //definition for struct type unset
+  //definition for struct type unlinked
   if(definitionEntry == (int*) 0){
+    //search definition with name
     definitionName = getStructName(getTypeStruct(variableEntry));
     definitionEntry = searchSymbolTable(global_symbol_table, definitionName, STRUCT);
+    //set definition field if found
     if(definitionEntry != (int*) 0){
       //set definition
       setDefintion(getTypeStruct(variableEntry), definitionEntry);
@@ -3529,6 +3544,7 @@ int gr_structAccess(int* variableName){
   if(symbol != SYM_IDENTIFIER)
     syntaxErrorSymbol(SYM_IDENTIFIER);
 
+  //find field offset
   fieldEntry = getStructField(definitionEntry, identifier);
   offset = getFieldOffset(fieldEntry) * WORDSIZE;
   type = getType(getFieldType(fieldEntry));
@@ -3540,7 +3556,9 @@ int gr_structAccess(int* variableName){
 
   getSymbol();
 
+  //compute address for further ->
   while(symbol == SYM_ARROW){
+    //only for struct pointers allowed
     variableName = getFieldName(fieldEntry);
     if(type != STRUCTSTAR_T){
       printLineNumber((int*) "error", lineNumber);
@@ -3553,9 +3571,11 @@ int gr_structAccess(int* variableName){
       exit(-1);
     }
 
+    //get definition of used structtype
     definitionEntry = getDefintion(getFieldType(fieldEntry));
-    //definition for struct type unset
+    //definition for struct type unlinked
     if(definitionEntry == (int*) 0){
+      //get definition with name
       definitionName = getStructName(getTypeStruct(variableEntry));
       definitionEntry = searchSymbolTable(global_symbol_table, definitionName, STRUCT);
       if(definitionEntry != (int*) 0){
@@ -3628,6 +3648,7 @@ int gr_factor() {
 
     // cast: "(" "int" [ "*" ] | "struct" identifier "*"  ")"
     //hw9
+    //extended for type STRUCTSTAR
     if (symbol == SYM_INT | symbol == SYM_STRUCT) {
       hasCast = 1;
 
@@ -3713,6 +3734,7 @@ int gr_factor() {
         if(type != INTSTAR_T)
           typeWarning(INTSTAR_T, type);
         
+        //load pointer from structs memory
         emitIFormat(OP_LW, currentTemporary(), currentTemporary(), 0);
         //hw9 end
       }else
@@ -3742,6 +3764,7 @@ int gr_factor() {
 
     if (type != INTSTAR_T)
       //hw9
+      //possible implicit cast of MALLOCSTAR_T
       type = typeWarning(INTSTAR_T, type);
 
     // dereference
@@ -3799,6 +3822,7 @@ int gr_factor() {
 
         type = gr_structAccess(identifier);
 
+        //load value from structs memory
         emitIFormat(OP_LW, currentTemporary(), currentTemporary(), 0);
         //hw9 end
       }else
@@ -3893,6 +3917,7 @@ int gr_factor() {
 
         type = gr_structAccess(variableOrProcedureName);
 
+        //load value from structs memory
         emitIFormat(OP_LW, currentTemporary(), currentTemporary(), 0);
         //hw9 end
       } else
@@ -3963,6 +3988,7 @@ int gr_term() {
 
   ltype = gr_factor();
   //hw9
+  //get additional type information for left operand
   leftStructType = structTypeName;
   //hw6 start
   firstValue=value;
@@ -3987,6 +4013,7 @@ int gr_term() {
 
     if (ltype != rtype)
       //hw9
+      //possible implicit cast of MALLOCSTAR_T
       ltype = typeWarning(ltype, rtype);
 
     //hw9 start
@@ -4147,6 +4174,7 @@ int gr_term() {
 
   // assert: allocatedTemporaries == n + 1
   //hw9 
+  //pass structs definition name to higher level
   structTypeName = leftStructType;
 
   return ltype;
@@ -4291,6 +4319,7 @@ int gr_simpleExpression() {
 
   ltype = gr_term();
   //hw9 
+  //get additional struct type information for left operand
   leftStructType = structTypeName;
 
   //hw6 start
@@ -4485,6 +4514,7 @@ int gr_simpleExpression() {
 
   // assert: allocatedTemporaries == n + 1
   //hw9
+  //pass additional type infomation to higher level
   structTypeName = leftStructType;
 
   return ltype;
@@ -4505,6 +4535,7 @@ int gr_expression(){
 
   ltype=gr_compExpression();
   //hw9
+  //get additional struct type information for left operand
   leftStructType = structTypeName;
 
   //hw6 start
@@ -4535,16 +4566,17 @@ int gr_expression(){
     rtype=gr_compExpression();
 
     //hw9 start
+    //implicit cast of MALLCOSTAR_T to INTSTAR_T or STRUCTSTAR_T
     if(ltype == MALLOCSTAR_T | rtype == MALLOCSTAR_T){
       if(ltype == INTSTAR_T | rtype == INTSTAR_T)
         ltype = INTSTAR_T;
       else if(ltype == STRUCTSTAR_T | rtype == STRUCTSTAR_T)
         ltype = STRUCTSTAR_T;
     }
-    //hw9 end
-    //hw9 start
+    
     if(ltype == STRUCTSTAR_T)
       structTypeControll(leftStructType);
+    //hw9 end
 
     //hw6 start
     if(valueAvailable){
@@ -4572,6 +4604,7 @@ int gr_expression(){
   }
   //hw6 end
   //hw9
+  //pass additional type information to higher level
   structTypeName = leftStructType;
 
   return ltype;
@@ -4595,6 +4628,7 @@ int gr_compExpression() {
   //hw4 
   ltype = gr_shiftExpression();
   //hw9
+  //get additional type information
   leftStructType = structTypeName;
 
   // assert: allocatedTemporaries == n + 1
@@ -4636,6 +4670,7 @@ int gr_compExpression() {
 
     if (ltype != rtype)
       //hw9
+      //possible implicit cast from MALLOCSTAR_T to INTSTAR_T ord STRUCTSTAR_T
       ltype = typeWarning(ltype, rtype);
 
     //hw9 start
@@ -4711,6 +4746,7 @@ int gr_compExpression() {
 
   // assert: allocatedTemporaries == n + 1
   //hw9
+  //pass additional type information to higher level
   structTypeName = leftStructType;
 
   return ltype;
@@ -4910,6 +4946,7 @@ void gr_return() {
 
     if (type != returnType)
       //hw9
+      //possible implicit cast from MALLOCSTAR_T to INTSTAR_T or STRUCTSTAR_T
       returnType = typeWarning(returnType, type);
 
     //hw9 start
@@ -5061,6 +5098,7 @@ void gr_statement() {
 
         ltype = gr_structAccess(identifier);
 
+        //asterisk works only for INTSTAR_T
         if(ltype != INTSTAR_T)
           typeWarning(INTSTAR_T, ltype);
 
@@ -5074,9 +5112,11 @@ void gr_statement() {
 
         rtype = gr_expression();
 
+        //and INT_T
         if(rtype != INT_T)
           typeWarning(INT_T, rtype);
 
+        //look for value from constant folding
         if(valueAvailable){
           load_integer(value);
           valueAvailable = 0;
@@ -5113,6 +5153,7 @@ void gr_statement() {
       //hw6 end
       if (ltype != INTSTAR_T)
         //hw9
+        //possible implicit cast from MALLOCSTAR_T to INTSTAR_T or STRUCTSTAR_T
         ltype = typeWarning(INTSTAR_T, ltype);
 
       if (symbol == SYM_RPARENTHESIS) {
@@ -5183,7 +5224,8 @@ void gr_statement() {
 
       //hw9 start
       if(ltype == STRUCTSTAR_T){
-        leftStructType = getStructName(getTypeStruct(entry)); //hereiam
+        //get struct type of struct pointer variable
+        leftStructType = getStructName(getTypeStruct(entry));
       }else{
         leftStructType = (int*) 0;
       }
@@ -5201,6 +5243,7 @@ void gr_statement() {
       //hw6 end
       if (ltype != rtype)
         //hw9
+        //possible implicit cast from MALLOCSTAR_T to INTSTAR_T or STRUCTSTAR_T
         ltype = typeWarning(ltype, rtype);
 
       //hw9 start
@@ -5239,6 +5282,7 @@ void gr_statement() {
 
       //hw9 start
       if(ltype == STRUCTSTAR_T)
+        //get struct type name of struct pointer variable
         leftStructType = getStructName(getTypeStruct(entry));
       else
         leftStructType = (int*) 0;
@@ -5268,6 +5312,7 @@ void gr_statement() {
 
       if(ltype != rtype){
         //hw9
+        //possible implicit cast from MALLOCSTAR_T to INTSTAR_T or STRUCTSTAR_T
         ltype = typeWarning(ltype, rtype);
       }
 
@@ -5298,6 +5343,7 @@ void gr_statement() {
 
       ltype = gr_structAccess(identifier);
 
+      //get additional type information
       leftStructType = structTypeName;
 
       if(symbol != SYM_ASSIGN)
@@ -5313,6 +5359,7 @@ void gr_statement() {
       if(ltype == STRUCTSTAR_T)
         structTypeControll(leftStructType);
 
+      //look for value from constant folding
       if(valueAvailable){
         load_integer(value);
         valueAvailable = 0;
@@ -5372,6 +5419,7 @@ int gr_type() {
     if(symbol != SYM_IDENTIFIER)
       syntaxErrorSymbol(SYM_IDENTIFIER);
     
+    //pass additional struct type information to higher levels
     structTypeName = identifier;
 
     getSymbol();
@@ -5619,12 +5667,13 @@ void gr_procedure(int* procedure, int type) {
     returnBranches = 0;
 
     returnType = type;
+
     //hw9 start
-
     if(entry != (int*) 0)
+      //set the struct type for return type
       returnStructType = getStructName(getTypeStruct(entry));
-
     //hw9 end
+
     while (isNotRbraceOrEOF())
       gr_statement();
 
@@ -5837,6 +5886,7 @@ void gr_cstar() {
 
       getSymbol();
 
+      //found pointer to struct or procedure
       if(symbol == SYM_ASTERISK){
         getSymbol();
 
@@ -5849,6 +5899,7 @@ void gr_cstar() {
         getSymbol();
 
         if(symbol == SYM_SEMICOLON){
+          //found pointer to struct
           entry = searchSymbolTable(global_symbol_table, variableOrProcedureName, VARIABLE);
 
           if (entry == (int*) 0) {
@@ -5867,6 +5918,7 @@ void gr_cstar() {
           getSymbol();
 
         }else if(symbol == SYM_LPARENTHESIS){
+          //found procedure with returntype STRUCTSTAR_T
           gr_procedure(variableOrProcedureName, STRUCTSTAR_T);
 
           entry = searchSymbolTable(global_symbol_table, variableOrProcedureName, PROCEDURE);
@@ -5881,7 +5933,7 @@ void gr_cstar() {
         setDefintion(entry, structDef);
         //hw9 end 
       }else{
-
+        //found struct definition
         gr_structDef(structName);
 
       }
@@ -7140,7 +7192,7 @@ void implementOpen() {
 }
 
 void emitMalloc() {
-  //hw9 changed type
+  //hw9 emitted special type for malloc to avoid type missmatches between INTSTAR_T and STRUCTSTAR_T
   createSymbolTableEntry(LIBRARY_TABLE, (int*) "malloc", 0, PROCEDURE, MALLOCSTAR_T, 0, binaryLength);
 
   // on boot levels higher than zero, zalloc falls back to malloc
