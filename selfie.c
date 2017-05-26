@@ -3245,18 +3245,34 @@ int load_variable(int* variable) {
   //hw9
   int type;
 
-  entry = getVariable(variable);
+  //hw10
+  entry = getScopedSymbolTableEntry(variable, VARIABLE);
 
-  //hw9 start
-  type = getVariableType(entry);
-  //if(type = STRUCTSTAR_T){
-    //structTypeName = getStructName(getTypeStruct(entry));
-  //}
-  //hw9 end
+  //hw10 start
+  if(entry == (struct symbol_table_t*) 0){
+    entry = searchSymbolTable(global_symbol_table, variable, ARRAY);
+    type = INTSTAR_T;
 
-  talloc();
+    if (entry == (struct symbol_table_t*) 0) {
+      printLineNumber((int*) "error", lineNumber);
+      print(variable);
+      print((int*) " undeclared");
+      println();
 
-  emitIFormat(OP_LW, getScope(entry), currentTemporary(), getAddress(entry));
+      exit(-1);
+    }
+
+    load_integer(getAddress(entry));
+
+    emitRFormat(OP_SPECIAL, REG_GP, currentTemporary(), currentTemporary(), FCT_ADDU);
+  }else{
+    type = getVariableType(entry);
+
+    talloc();
+
+    emitIFormat(OP_LW, getScope(entry), currentTemporary(), getAddress(entry));
+  }
+  //hw10 end
 
   return type;
 }
