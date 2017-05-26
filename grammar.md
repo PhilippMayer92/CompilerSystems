@@ -51,7 +51,7 @@ literal             = integer | character .
 
 selector            = "[" simpleExpression "]" .
 
-procedure           = "(" [ variable { "," variable } ] ")"
+procedure           = "(" [ variable [ selector ] { "," variable [ selector ] } ] ")"
                       ( ";" | "{" { variable ";" } { statement } "}" ) .
 
 variable            = type identifier .

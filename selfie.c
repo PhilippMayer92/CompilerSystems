@@ -761,7 +761,8 @@ void gr_if();
 void gr_return();
 void gr_statement();
 int  gr_type();
-void gr_variable(int offset);
+//hw10 changed returntype
+struct symbol_table_t* gr_variable(int offset);
 int  gr_initialization(int type);
 void gr_procedure(int* procedure, int type);
 void gr_cstar();
@@ -5502,7 +5503,8 @@ int gr_type() {
   return type;
 }
 
-void gr_variable(int offset) {
+//hw10 changed returntype
+struct symbol_table_t* gr_variable(int offset) {
   int type;
   //hw9 start
   struct symbol_table_t* entry;
@@ -5527,9 +5529,11 @@ void gr_variable(int offset) {
 
     syntaxErrorSymbol(SYM_IDENTIFIER);
 
-    createSymbolTableEntry(LOCAL_TABLE, (int*) "missing variable name", lineNumber, VARIABLE, type, 0, offset);
+    entry = createSymbolTableEntry(LOCAL_TABLE, (int*) "missing variable name", lineNumber, VARIABLE, type, 0, offset);
   }
 
+  //hw10
+  return entry;
 }
 
 int gr_initialization(int type) {
@@ -5612,6 +5616,8 @@ void gr_procedure(int* procedure, int type) {
   int parameters;
   int localVariables;
   struct symbol_table_t* entry;
+  //hw10
+  int size;
 
   // assuming procedure is undefined
   isUndefined = 1;
@@ -5623,14 +5629,44 @@ void gr_procedure(int* procedure, int type) {
     getSymbol();
 
     if (symbol != SYM_RPARENTHESIS) {
-      gr_variable(0);
+      //hw10
+      entry = gr_variable(0);
+
+      //hw10 start
+      if(symbol == SYM_LSQRBRACKET){
+        setClass(entry, ARRAY);
+
+        while(symbol == SYM_LSQRBRACKET){
+          arrayDeklaration = 1;
+          size = gr_selector(0, (struct symbol_table_t*) 0);
+          arrayDeklaration = 0;
+
+          addDimension(entry, size);
+        }
+      }
+      //hw10 end
 
       numberOfParameters = 1;
 
       while (symbol == SYM_COMMA) {
         getSymbol();
 
-        gr_variable(0);
+        //hw10
+        entry = gr_variable(0);
+
+        //hw10 start
+        if(symbol == SYM_LSQRBRACKET){
+          setClass(entry, ARRAY);
+
+          while(symbol == SYM_LSQRBRACKET){
+            arrayDeklaration = 1;
+            size = gr_selector(0, (struct symbol_table_t*) 0);
+            arrayDeklaration = 0;
+
+            addDimension(entry, size);
+          }
+        }
+        //hw10 end
 
         numberOfParameters = numberOfParameters + 1;
       }
