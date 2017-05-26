@@ -5132,27 +5132,38 @@ void gr_statement() {
         //"*" identifier [ selector ] "=" 
       }else if(symbol == SYM_LSQRBRACKET){
 
-        entry = global_symbol_table;
-        
-        entry = searchSymbolTable(entry, variableOrProcedureName, ARRAY);
+        //hw10 start
+        entry = searchSymbolTable(local_symbol_table, variableOrProcedureName, ARRAY);
 
-        if((int) entry == 0){
-          printLineNumber((int*) "error", lineNumber);
-          print(variableOrProcedureName);
-          print((int*) " undeclared");
-          println();
+        if(entry != (struct symbol_table_t*) 0){
+          //initialize address register with startaddress of array
+          load_integer(getAddress(entry));
+          emitRFormat(OP_SPECIAL, getScope(entry), currentTemporary(), currentTemporary(), FCT_ADDU);
+          //initialize address register with startaddress of array
+          emitIFormat(OP_LW, currentTemporary(), currentTemporary(), 0);
+        }else{
 
-          exit(-1);
+          entry = searchSymbolTable(global_symbol_table, variableOrProcedureName, ARRAY);
+
+          if((int) entry == 0){
+            printLineNumber((int*) "error", lineNumber);
+            print(variableOrProcedureName);
+            print((int*) " undeclared");
+            println();
+
+            exit(-1);
+          }
+
+          //initialize address register with startaddress of array
+          load_integer(getAddress(entry));
+          emitRFormat(OP_SPECIAL, getScope(entry), currentTemporary(), currentTemporary(), FCT_ADDU);
         }
+        //hw10 end
 
         ltype = getVariableType(entry);
         if(ltype != INTSTAR_T){
           typeWarning(INTSTAR_T, ltype);
         }
-
-        //initialize address register with startaddress of array
-        load_integer(getAddress(entry));
-        emitRFormat(OP_SPECIAL, getScope(entry), currentTemporary(), currentTemporary(), FCT_ADDU);
 
         selectorNum = 1;
         while(symbol == SYM_LSQRBRACKET){
@@ -5368,18 +5379,35 @@ void gr_statement() {
       // identifier [ selector ] = expression | call;
     }else if(symbol == SYM_LSQRBRACKET){
 
-      entry = searchSymbolTable(global_symbol_table, variableOrProcedureName, ARRAY);
-      
-      if((int) entry == 0){
-        printLineNumber((int*) "error", lineNumber);
-        print(variableOrProcedureName);
-        print((int*) " undeclared");
-        println();
+      //hw10 start
+      entry = searchSymbolTable(local_symbol_table, variableOrProcedureName, ARRAY);
 
-        exit(-1);
+      if(entry != (struct symbol_table_t*) 0){
+        //initialize address register with startaddress of array
+        load_integer(getAddress(entry));
+        emitRFormat(OP_SPECIAL, getScope(entry), currentTemporary(), currentTemporary(), FCT_ADDU);
+        //initialize address register with startaddress of array
+        emitIFormat(OP_LW, currentTemporary(), currentTemporary(), 0);
+      }else{
+
+        entry = searchSymbolTable(global_symbol_table, variableOrProcedureName, ARRAY);
+
+        if((int) entry == 0){
+          printLineNumber((int*) "error", lineNumber);
+          print(variableOrProcedureName);
+          print((int*) " undeclared");
+          println();
+
+          exit(-1);
+        }
+
+        //initialize address register with startaddress of array
+        load_integer(getAddress(entry));
+        emitRFormat(OP_SPECIAL, getScope(entry), currentTemporary(), currentTemporary(), FCT_ADDU);
       }
 
       ltype = getVariableType(entry);
+      //hw10 end
 
       //hw9 start
       if(ltype == STRUCTSTAR_T)
@@ -5388,10 +5416,6 @@ void gr_statement() {
       else
         leftStructType = (int*) 0;
       //hw9 end
-
-      //initialize address register with startaddress of array
-      load_integer(getAddress(entry));
-      emitRFormat(OP_SPECIAL, getScope(entry), currentTemporary(), currentTemporary(), FCT_ADDU);
 
       //iterate through found selectors
       selectorNum = 1;
