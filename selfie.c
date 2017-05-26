@@ -9782,13 +9782,24 @@ void printUsage() {
   println();
 }
 
+//hw10 start
+// a global array variable
+int arr[5][10][15];
+
+// a new procedure
+void assignElement(int array[5][10][15]) {
+  array[2][6][11] = 6;
+  array[4][9][14] = array[2][6][11] + array[1][5][10];
+}
+
+// update selfie() procedure in selfie.c
 int selfie() {
   int* option;
-  print((int*) "this is pmayer's selfie");
+  print((int*) "this is pmayer's selfie ");
   println();
-  
+
   if (numberOfRemainingArguments() == 0)
-    printUsage();
+  printUsage();
   else {
     initScanner();
     initRegister();
@@ -9799,28 +9810,28 @@ int selfie() {
       option = getArgument();
 
       if (stringCompare(option, (int*) "-c"))
-        selfie_compile();
+      selfie_compile();
       else if (numberOfRemainingArguments() == 0) {
         // remaining options have at least one argument
         printUsage();
 
         return -1;
       } else if (stringCompare(option, (int*) "-o"))
-        selfie_output();
+      selfie_output();
       else if (stringCompare(option, (int*) "-s"))
-        selfie_disassemble();
+      selfie_disassemble();
       else if (stringCompare(option, (int*) "-l"))
-        selfie_load();
+      selfie_load();
       else if (stringCompare(option, (int*) "-m"))
-        return selfie_run(MIPSTER, MIPSTER, 0);
+      return selfie_run(MIPSTER, MIPSTER, 0);
       else if (stringCompare(option, (int*) "-d"))
-        return selfie_run(MIPSTER, MIPSTER, 1);
+      return selfie_run(MIPSTER, MIPSTER, 1);
       else if (stringCompare(option, (int*) "-y"))
-        return selfie_run(HYPSTER, MIPSTER, 0);
+      return selfie_run(HYPSTER, MIPSTER, 0);
       else if (stringCompare(option, (int*) "-min"))
-        return selfie_run(MIPSTER, MINSTER, 0);
+      return selfie_run(MIPSTER, MINSTER, 0);
       else if (stringCompare(option, (int*) "-mob"))
-        return selfie_run(MIPSTER, MOBSTER, 0);
+      return selfie_run(MIPSTER, MOBSTER, 0);
       else {
         printUsage();
 
@@ -9829,8 +9840,24 @@ int selfie() {
     }
   }
 
+  ////
+  // add these lines to your code
+  ////
+  arr[1][1][1] = 11;
+  arr[1][5][10] = 5;
+
+  assignElement(arr);
+
+  if (arr[4][9][14] == arr[1][1][1]) {
+    return 0;
+  } else {
+    return -1;
+  }
+  ////
+
   return 0;
 }
+//hw10 end
 
 int main(int argc, int* argv) {
   initSelfie(argc, (int*) argv);
