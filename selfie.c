@@ -3051,6 +3051,10 @@ int lookForFactor() {
   else if (symbol == SYM_NOT_BITW)
     return 0;
   //hw5 end
+  //hw11 start
+  else if (symbol == SYM_NOT_LOG)
+    return 0;
+  //hw11 end
   else
     return 1;
 }
@@ -3783,9 +3787,15 @@ struct typechecking_t* gr_factor() {
   struct symbol_table_t* entry;
   //hw7 end
   int* variableOrProcedureName;
+  //hw11 start
+  int constant;
+  int valueFound;
+  //hw11 end
 
   // assert: n = allocatedTemporaries
   hasCast = 0;
+  //hw11
+  valueFound = 0;
 
   type = INT_T_STRUCT;
 
@@ -3939,7 +3949,7 @@ struct typechecking_t* gr_factor() {
 
     type = INT_T_STRUCT;
     //hw5 start
-    //not?
+    //bitwise not?
   } else if(symbol == SYM_NOT_BITW){
     getSymbol();
 
@@ -3948,7 +3958,7 @@ struct typechecking_t* gr_factor() {
       variableOrProcedureName = identifier;
 
       getSymbol();
-      //["~"] identifier [ selector ] 
+      //["~"] identifier [ selector | structAccess ] 
       if(symbol == SYM_LSQRBRACKET){
         //hw10 start
         entry = searchSymbolTable(local_symbol_table, variableOrProcedureName, ARRAY);
@@ -4007,7 +4017,7 @@ struct typechecking_t* gr_factor() {
       }else
         type = load_variable(identifier);
 
-    // * "(" expression ")"
+    // ~ "(" expression ")"
     } else if (symbol == SYM_LPARENTHESIS) {
       getSymbol();
 
@@ -4015,8 +4025,12 @@ struct typechecking_t* gr_factor() {
 
       //hw6 start
       if(valueAvailable){
-        load_integer(value);
+        //load_integer(value);
         valueAvailable=0;
+        //hw11 start
+        constant = value;
+        valueFound = 1;
+        //hw11 end
       }
       //hw6 end
       
@@ -4027,9 +4041,115 @@ struct typechecking_t* gr_factor() {
     } else
       syntaxErrorUnexpected();
 
-    emitRFormat(OP_SPECIAL, currentTemporary(), 0, currentTemporary(), FCT_NOR);
+    if(valueFound){
+      value = ~ constant;
+      valueAvailable = 1;
+    }else
+      emitRFormat(OP_SPECIAL, currentTemporary(), 0, currentTemporary(), FCT_NOR);
 
   //hw5 ende
+  //hw11 start
+    //logical not?
+  } else if(symbol == SYM_NOT_LOG){
+    getSymbol();
+
+    if(symbol == SYM_IDENTIFIER){
+      //hw7 start
+      variableOrProcedureName = identifier;
+
+      getSymbol();
+      //["!"] identifier [ selector | structAccess ] 
+      if(symbol == SYM_LSQRBRACKET){
+        //hw10 start
+        entry = searchSymbolTable(local_symbol_table, variableOrProcedureName, ARRAY);
+
+        if(entry != (struct symbol_table_t*) 0){
+          //initialize address register with startaddress of array
+          load_integer(getAddress(entry));
+          emitRFormat(OP_SPECIAL, getScope(entry), currentTemporary(), currentTemporary(), FCT_ADDU);
+          //initialize address register with startaddress of array
+          emitIFormat(OP_LW, currentTemporary(), currentTemporary(), 0);
+        }else{
+
+          entry = searchSymbolTable(global_symbol_table, variableOrProcedureName, ARRAY);
+
+          if((int) entry == 0){
+            printLineNumber((int*) "error", lineNumber);
+            print(variableOrProcedureName);
+            print((int*) " undeclared");
+            println();
+
+            exit(-1);
+          }
+
+          //initialize address register with startaddress of array
+          load_integer(getAddress(entry));
+          emitRFormat(OP_SPECIAL, getScope(entry), currentTemporary(), currentTemporary(), FCT_ADDU);
+        }
+
+        type = setTypecheckingType(entry);
+        //hw10 end
+        selectorNum = 1;
+        while(symbol == SYM_LSQRBRACKET){
+          getSymbol();
+
+          gr_selector(selectorNum, entry);
+
+          selectorNum = selectorNum +1;
+        }
+
+        //in case of to few dimension an pointer at the first entry of first lost dimension will be returned
+        if((selectorNum-1)<getNumbOfDim(entry)){
+          type = INTSTAR_T_STRUCT;
+        }else{
+          //load data from specified array position
+          emitIFormat(OP_LW, currentTemporary(), currentTemporary(), 0);
+        }
+      //hw7 end
+      //hw9 start
+      }else if(symbol == SYM_ARROW){
+
+        type = gr_structAccess(identifier);
+
+        //load value from structs memory
+        emitIFormat(OP_LW, currentTemporary(), currentTemporary(), 0);
+        //hw9 end
+      }else
+        type = load_variable(identifier);
+
+    // ! "(" expression ")"
+    } else if (symbol == SYM_LPARENTHESIS) {
+      getSymbol();
+
+      type = gr_expression();
+
+      //hw6 start
+      if(valueAvailable){
+        //load_integer(value);
+        valueAvailable = 0;
+        constant = value;
+        valueFound = 1;
+      }
+      //hw6 end
+      
+      if (symbol == SYM_RPARENTHESIS)
+        getSymbol();
+      else
+        syntaxErrorSymbol(SYM_RPARENTHESIS);
+    } else
+      syntaxErrorUnexpected();
+
+    if(valueFound){
+      value = ! constant;
+      valueAvailable = 1;
+    }else{
+      emitIFormat(OP_BNE, REG_ZR, currentTemporary(), 4);
+      emitIFormat(OP_ADDIU, REG_ZR, currentTemporary(), 1);
+      emitIFormat(OP_BNE, REG_ZR, currentTemporary(), 2);
+      emitRFormat(OP_SPECIAL, REG_ZR, REG_ZR, currentTemporary(), FCT_ADDU);
+    }
+
+  //hw11 ende
   // identifier?
   } else if (symbol == SYM_IDENTIFIER) {
 
