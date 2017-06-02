@@ -787,6 +787,10 @@ struct typechecking_t*  gr_call(int* procedure);
 struct typechecking_t*  gr_factor();
 struct typechecking_t*  gr_term();
 struct typechecking_t*  gr_simpleExpression();
+//hw11 start
+struct typechecking_t*  gr_bitExpression();
+struct typechecking_t*  gr_logExpression();
+//hw11 end
 struct typechecking_t*  gr_expression();
 //hw5
 struct typechecking_t*  gr_compExpression();
@@ -1134,6 +1138,8 @@ void emitIFormat(int opcode, int rs, int rt, int immediate);
 void emitJFormat(int opcode, int instr_index);
 
 void fixup_relative(int fromAddress);
+//hw11
+void fixup_chain(int startAddress);
 void fixup_absolute(int fromAddress, int toAddress);
 void fixlink_absolute(int fromAddress, int toAddress);
 
@@ -4810,8 +4816,93 @@ struct typechecking_t* gr_simpleExpression() {
   return ltype;
 }
 
-//hw5 start
+//hw11 start
 struct typechecking_t* gr_expression(){
+  struct typechecking_t* ltype;
+  ltype = gr_logExpression();
+  return ltype;
+}
+
+struct typechecking_t* gr_logExpression(){
+  struct typechecking_t* ltype;
+  int singleOperand;
+  int constant;
+  int constantFound;
+  int fixupChainStart;
+
+  singleOperand = 1;
+  constantFound = 0;
+  fixupChainStart = 0;
+
+  ltype = gr_bitExpression();
+
+  if(valueAvailable){
+    constant = value;
+    valueAvailable = 0;
+    constantFound = 1;
+  }
+
+  while(symbol == SYM_AND_LOG){
+
+    singleOperand = 0;
+
+    if(constantFound){
+      if(constant == 0){
+        value = constant;
+        valueAvailable = 1;
+        return INT_T_STRUCT;
+      }
+      constantFound = 0;
+    }else{
+      if(fixupChainStart == 0) fixupChainStart = binaryLength;
+
+      emitIFormat(OP_BEQ, REG_ZR, currentTemporary(), binaryLength - fixupChainStart);
+      tfree(1);
+
+      fixupChainStart = binaryLength - 2 * WORDSIZE;
+    }
+
+    getSymbol();
+
+    gr_bitExpression();
+
+    if(valueAvailable){
+      constant = value;
+      constantFound = 1;
+      valueAvailable = 0;
+    }
+  }
+
+  if(singleOperand){
+    if(constantFound){
+      value = constant;
+      valueAvailable = 1;
+    }
+    return ltype;
+  }else{
+    if(constantFound){
+      if(constant == 0){
+        valueAvailable = 1;
+        value = 0;
+        return INT_T_STRUCT;
+      }
+      talloc();
+    }else{
+      if(fixupChainStart == 0) fixupChainStart = binaryLength;
+      emitIFormat(OP_BEQ, REG_ZR, currentTemporary(), binaryLength - fixupChainStart);
+      fixupChainStart = binaryLength - 2 * WORDSIZE;
+    }
+    emitIFormat(OP_ADDIU, REG_ZR, currentTemporary(), 1);
+    emitIFormat(OP_BEQ, REG_ZR, REG_ZR, 2);
+    if(fixupChainStart != 0) fixup_chain(fixupChainStart);
+    emitRFormat(OP_SPECIAL, REG_ZR, REG_ZR, currentTemporary(), FCT_ADDU);
+    return INT_T_STRUCT;
+  }
+}
+//hw11 end
+
+//hw5 start
+struct typechecking_t* gr_bitExpression(){
   struct typechecking_t* ltype;
   struct typechecking_t* rtype;
   int operatorSymbol;
@@ -6817,6 +6908,23 @@ void fixup_relative(int fromAddress) {
       getRT(instruction),
       (binaryLength - fromAddress - WORDSIZE) / WORDSIZE));
 }
+
+//hw11 start
+void fixup_chain(int startAddress){
+  int instruction;
+  int offset;
+
+  offset = 1;
+  while(offset != 0){
+    instruction = loadBinary(startAddress);
+    offset = getImmediate(instruction);
+
+    storeBinary(startAddress, encodeIFormat(getOpcode(instruction), getRS(instruction), getRT(instruction), (binaryLength - startAddress - WORDSIZE) / WORDSIZE));
+
+    startAddress = startAddress - offset;
+  }
+}
+//hw11 end
 
 void fixup_absolute(int fromAddress, int toAddress) {
   storeBinary(fromAddress,
