@@ -2332,32 +2332,23 @@ int findNextCharacter() {
   }
 }
 
+//hw11 start
 int isCharacterLetter() {
   // ASCII codes for lower- and uppercase letters are in contiguous intervals
-  if (character >= 'a')
-    if (character <= 'z')
-      return 1;
-    else
-      return 0;
-  else if (character >= 'A')
-    if (character <= 'Z')
-      return 1;
-    else
-      return 0;
+  if (character >= 'a' && character <= 'z' || character >= 'A' && character <= 'Z')
+    return 1;
   else
     return 0;
 }
 
 int isCharacterDigit() {
   // ASCII codes for digits are in a contiguous interval
-  if (character >= '0')
-    if (character <= '9')
-      return 1;
-    else
-      return 0;
+  if (character >= '0' && character <= '9')
+    return 1;
   else
     return 0;
 }
+//hw11 end
 
 int isHexadecimalDigit(){
 	int is;
@@ -2372,27 +2363,21 @@ int isHexadecimalDigit(){
 	return 0;
 }
 
+//hw11 start
 int isCharacterLetterOrDigitOrUnderscore() {
-  if (isCharacterLetter())
-    return 1;
-  else if (isCharacterDigit())
-    return 1;
-  else if (character == CHAR_UNDERSCORE)
+  if (isCharacterLetter() || character >= '0' && character <= '9' || character == CHAR_UNDERSCORE)
     return 1;
   else
     return 0;
 }
 
 int isCharacterNotDoubleQuoteOrNewLineOrEOF() {
-  if (character == CHAR_DOUBLEQUOTE)
-    return 0;
-  else if (isCharacterNewLine())
-    return 0;
-  else if (character == CHAR_EOF)
+  if (character == CHAR_DOUBLEQUOTE || character == CHAR_LF || character == CHAR_CR || character == CHAR_EOF)
     return 0;
   else
     return 1;
 }
+//hw11 end
 
 int identifierStringMatch(int keyword) {
   return stringCompare(identifier, (int*) *(SYMBOLS + keyword));
@@ -3786,6 +3771,8 @@ struct typechecking_t* gr_structAccess(int* variableName){
 
 struct typechecking_t* gr_factor() {
   int hasCast;
+  //hw11
+  int hasNotLog;
   struct typechecking_t* cast;
   struct typechecking_t* type;
   //hw7 start
@@ -3802,6 +3789,8 @@ struct typechecking_t* gr_factor() {
   hasCast = 0;
   //hw11
   valueFound = 0;
+  //hw11
+  hasNotLog = 0;
 
   type = INT_T_STRUCT;
 
@@ -3844,7 +3833,12 @@ struct typechecking_t* gr_factor() {
 
       return type;
     }
+    //hw11 start
+  }else if( symbol == SYM_NOT_LOG){
+    hasNotLog = 1;
+    getSymbol();
   }
+  //hw11
 
   // dereference?
   if (symbol == SYM_ASTERISK) {
@@ -3934,9 +3928,10 @@ struct typechecking_t* gr_factor() {
 
       type = gr_expression();
 
-      //hw6 start
+      //hw6 hw11 start
       if(valueAvailable){
-        load_integer(value);
+        constant = value;
+        valueFound = 1;
         valueAvailable=0;
       }
       //hw6 end
@@ -4031,7 +4026,6 @@ struct typechecking_t* gr_factor() {
 
       //hw6 start
       if(valueAvailable){
-        //load_integer(value);
         valueAvailable=0;
         //hw11 start
         constant = value;
@@ -4054,108 +4048,7 @@ struct typechecking_t* gr_factor() {
       emitRFormat(OP_SPECIAL, currentTemporary(), 0, currentTemporary(), FCT_NOR);
 
   //hw5 ende
-  //hw11 start
-    //logical not?
-  } else if(symbol == SYM_NOT_LOG){
-    getSymbol();
-
-    if(symbol == SYM_IDENTIFIER){
-      //hw7 start
-      variableOrProcedureName = identifier;
-
-      getSymbol();
-      //["!"] identifier [ selector | structAccess ] 
-      if(symbol == SYM_LSQRBRACKET){
-        //hw10 start
-        entry = searchSymbolTable(local_symbol_table, variableOrProcedureName, ARRAY);
-
-        if(entry != (struct symbol_table_t*) 0){
-          //initialize address register with startaddress of array
-          load_integer(getAddress(entry));
-          emitRFormat(OP_SPECIAL, getScope(entry), currentTemporary(), currentTemporary(), FCT_ADDU);
-          //initialize address register with startaddress of array
-          emitIFormat(OP_LW, currentTemporary(), currentTemporary(), 0);
-        }else{
-
-          entry = searchSymbolTable(global_symbol_table, variableOrProcedureName, ARRAY);
-
-          if((int) entry == 0){
-            printLineNumber((int*) "error", lineNumber);
-            print(variableOrProcedureName);
-            print((int*) " undeclared");
-            println();
-
-            exit(-1);
-          }
-
-          //initialize address register with startaddress of array
-          load_integer(getAddress(entry));
-          emitRFormat(OP_SPECIAL, getScope(entry), currentTemporary(), currentTemporary(), FCT_ADDU);
-        }
-
-        type = setTypecheckingType(entry);
-        //hw10 end
-        selectorNum = 1;
-        while(symbol == SYM_LSQRBRACKET){
-          getSymbol();
-
-          gr_selector(selectorNum, entry);
-
-          selectorNum = selectorNum +1;
-        }
-
-        //in case of to few dimension an pointer at the first entry of first lost dimension will be returned
-        if((selectorNum-1)<getNumbOfDim(entry)){
-          type = INTSTAR_T_STRUCT;
-        }else{
-          //load data from specified array position
-          emitIFormat(OP_LW, currentTemporary(), currentTemporary(), 0);
-        }
-      //hw7 end
-      //hw9 start
-      }else if(symbol == SYM_ARROW){
-
-        type = gr_structAccess(identifier);
-
-        //load value from structs memory
-        emitIFormat(OP_LW, currentTemporary(), currentTemporary(), 0);
-        //hw9 end
-      }else
-        type = load_variable(identifier);
-
-    // ! "(" expression ")"
-    } else if (symbol == SYM_LPARENTHESIS) {
-      getSymbol();
-
-      type = gr_expression();
-
-      //hw6 start
-      if(valueAvailable){
-        //load_integer(value);
-        valueAvailable = 0;
-        constant = value;
-        valueFound = 1;
-      }
-      //hw6 end
-      
-      if (symbol == SYM_RPARENTHESIS)
-        getSymbol();
-      else
-        syntaxErrorSymbol(SYM_RPARENTHESIS);
-    } else
-      syntaxErrorUnexpected();
-
-    if(valueFound){
-      value = ! constant;
-      valueAvailable = 1;
-    }else{
-      emitIFormat(OP_BNE, REG_ZR, currentTemporary(), 4);
-      emitIFormat(OP_ADDIU, REG_ZR, currentTemporary(), 1);
-      emitIFormat(OP_BNE, REG_ZR, currentTemporary(), 2);
-      emitRFormat(OP_SPECIAL, REG_ZR, REG_ZR, currentTemporary(), FCT_ADDU);
-    }
-
-  //hw11 ende
+  
   // identifier?
   } else if (symbol == SYM_IDENTIFIER) {
 
@@ -4246,8 +4139,8 @@ struct typechecking_t* gr_factor() {
   // integer?
   } else if (symbol == SYM_INTEGER) {
     //hw6 start
-    value=literal;
-    valueAvailable=1;
+    constant = literal;
+    valueFound = 1;
     //hw6 end
 
     getSymbol();
@@ -4256,9 +4149,13 @@ struct typechecking_t* gr_factor() {
   // character?
   } else if (symbol == SYM_CHARACTER) {
 
-    talloc();
+    //hw11 start
+    constant = literal;
+    valueFound = 1;
+    //hw11 end
+    //talloc();
 
-    emitIFormat(OP_ADDIU, REG_ZR, currentTemporary(), literal);
+    //emitIFormat(OP_ADDIU, REG_ZR, currentTemporary(), literal);
 
     getSymbol();
 
@@ -4285,6 +4182,25 @@ struct typechecking_t* gr_factor() {
       syntaxErrorSymbol(SYM_RPARENTHESIS);
   } else
     syntaxErrorUnexpected();
+
+  //hw11 start
+  if(hasNotLog){
+    if(valueFound){
+      value = ! constant;
+      valueAvailable = 1;
+    }else{
+      emitIFormat(OP_BNE, REG_ZR, currentTemporary(), 4);
+      emitIFormat(OP_ADDIU, REG_ZR, currentTemporary(), 1);
+      emitIFormat(OP_BNE, REG_ZR, currentTemporary(), 2);
+      emitRFormat(OP_SPECIAL, REG_ZR, REG_ZR, currentTemporary(), FCT_ADDU);
+    }
+  }else{
+    if(valueFound){
+      value = constant;
+      valueAvailable = 1;
+    }
+  }
+  //hw11 end
 
   // assert: allocatedTemporaries == n + 1
   if (hasCast)
@@ -4828,7 +4744,7 @@ struct typechecking_t* gr_expression(){
   constantFound = 0;
   fixupChainStart = 0;
 
-  ltype = gr_bitExpression();
+  ltype = gr_logExpression();
 
   if(valueAvailable){
     constant = value;
@@ -4858,7 +4774,7 @@ struct typechecking_t* gr_expression(){
 
     getSymbol();
 
-    gr_bitExpression();
+    gr_logExpression();
 
     if(valueAvailable){
       constant = value;
@@ -6881,10 +6797,11 @@ void decodeJFormat() {
   instr_index = getInstrIndex(ir);
 }
 
+//hw11 start
 void decode() {
   opcode = getOpcode(ir);
 
-  if (opcode == 0)
+  if (!opcode)
     decodeRFormat();
   else if (opcode == OP_JAL)
     decodeJFormat();
@@ -6893,6 +6810,7 @@ void decode() {
   else
     decodeIFormat();
 }
+//hw11 end
 
 void printOpcode(int opcode) {
   print((int*) *(OPCODES + opcode));
@@ -7538,6 +7456,7 @@ void emitOpen() {
   emitRFormat(OP_SPECIAL, REG_RA, 0, 0, FCT_JR);
 }
 
+//hw11 start
 int down_loadString(int* table, int vaddr, int* s) {
   int i;
   int* paddr;
@@ -7551,13 +7470,7 @@ int down_loadString(int* table, int vaddr, int* s) {
 
         *(s + i) = loadPhysicalMemory(paddr);
 
-        if (loadCharacter(paddr, 0) == 0)
-          return 1;
-        else if (loadCharacter(paddr, 1) == 0)
-          return 1;
-        else if (loadCharacter(paddr, 2) == 0)
-          return 1;
-        else if (loadCharacter(paddr, 3) == 0)
+        if (!loadCharacter(paddr, 0) || !loadCharacter(paddr, 1) || !loadCharacter(paddr, 2) || !loadCharacter(paddr, 3))
           return 1;
 
         vaddr = vaddr + WORDSIZE;
@@ -7565,7 +7478,7 @@ int down_loadString(int* table, int vaddr, int* s) {
         i = i + 1;
       } else {
         if (debug_open) {
-          print(binaryName);
+          print(selfieName);
           print((int*) ": opening file with name at virtual address ");
           printHexadecimal(vaddr, 8);
           print((int*) " failed because the address is unmapped");
@@ -7574,7 +7487,7 @@ int down_loadString(int* table, int vaddr, int* s) {
       }
     } else {
       if (debug_open) {
-        print(binaryName);
+        print(selfieName);
         print((int*) ": opening file with name at virtual address ");
         printHexadecimal(vaddr, 8);
         print((int*) " failed because the address is invalid");
@@ -7585,6 +7498,7 @@ int down_loadString(int* table, int vaddr, int* s) {
 
   return 0;
 }
+//hw11 end
 
 void implementOpen() {
   int mode;
