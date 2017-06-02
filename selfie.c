@@ -346,6 +346,11 @@ int SYM_RSQRBRACKET  = 34; //]
 int SYM_STRUCT       = 35; //struct
 //hw9
 int SYM_ARROW        = 36; //->
+//hw11 start
+int SYM_AND_LOG      = 37; //&&
+int SYM_OR_LOG       = 38; //||
+int SYM_NOT_LOG      = 39; //!
+//hw11 end
 
 int* SYMBOLS; // strings representing symbols
 
@@ -382,8 +387,8 @@ int  sourceFD   = 0;        // file descriptor of open source file
 // ------------------------- INITIALIZATION ------------------------
 
 void initScanner () {
-  //hw4 hw5 hw7 hw8 hw9
-  SYMBOLS = malloc(37 * SIZEOFINTSTAR);
+  //hw4 hw5 hw7 hw8 hw9 hw11
+  SYMBOLS = malloc(40 * SIZEOFINTSTAR);
 
   *(SYMBOLS + SYM_IDENTIFIER)   = (int) "identifier";
   *(SYMBOLS + SYM_INTEGER)      = (int) "integer";
@@ -430,6 +435,11 @@ void initScanner () {
   *(SYMBOLS + SYM_STRUCT)       = (int) "struct";
   //hw9
   *(SYMBOLS + SYM_ARROW)        = (int) "->";
+  //hw11 start
+  *(SYMBOLS + SYM_AND_LOG)      = (int) "&&";
+  *(SYMBOLS + SYM_OR_LOG)       = (int) "||";
+  *(SYMBOLS + SYM_NOT_LOG)      = (int) "!";
+  //hw11 end
 
   character = CHAR_EOF;
   symbol    = SYM_EOF;
@@ -2679,13 +2689,14 @@ void getSymbol() {
       } else if (character == CHAR_EXCLAMATION) {
         getCharacter();
 
-        if (character == CHAR_EQUAL)
+        //hw11 start
+        if (character == CHAR_EQUAL){
           getCharacter();
-        else
-          syntaxErrorCharacter(CHAR_EQUAL);
 
-        symbol = SYM_NOTEQ;
-
+          symbol = SYM_NOTEQ;
+        }else
+          symbol = SYM_NOT_LOG;
+        //hw11 end
       } else if (character == CHAR_PERCENTAGE) {
         getCharacter();
 
@@ -2694,11 +2705,25 @@ void getSymbol() {
       } else if (character == CHAR_AND){
         getCharacter();
 
-        symbol = SYM_AND_BITW;
+        //hw11 start
+        if(character == CHAR_AND){
+          symbol = SYM_AND_LOG;
+
+          getCharacter();
+        }else
+          symbol = SYM_AND_BITW;
+        //hw11 end
       } else if (character == CHAR_OR){
         getCharacter();
 
-        symbol = SYM_OR_BITW;
+        //hw11 start
+        if(character == CHAR_OR){
+          symbol = SYM_OR_LOG;
+
+          getCharacter();
+        }else
+          symbol = SYM_OR_BITW;
+        //hw11 end
       } else if(character == CHAR_NOT){
         getCharacter();
 
