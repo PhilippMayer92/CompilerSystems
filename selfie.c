@@ -4819,8 +4819,79 @@ struct typechecking_t* gr_simpleExpression() {
 //hw11 start
 struct typechecking_t* gr_expression(){
   struct typechecking_t* ltype;
-  ltype = gr_logExpression();
-  return ltype;
+  int singleOperand;
+  int constant;
+  int constantFound;
+  int fixupChainStart;
+
+  singleOperand = 1;
+  constantFound = 0;
+  fixupChainStart = 0;
+
+  ltype = gr_bitExpression();
+
+  if(valueAvailable){
+    constant = value;
+    valueAvailable = 0;
+    constantFound = 1;
+  }
+
+  while(symbol == SYM_OR_LOG){
+
+    singleOperand = 0;
+
+    if(constantFound){
+      if(constant != 0){
+        value = 1;
+        valueAvailable = 1;
+        return INT_T_STRUCT;
+      }
+      constantFound = 0;
+    }else{
+      if(fixupChainStart == 0) fixupChainStart = binaryLength;
+
+      emitIFormat(OP_BNE, REG_ZR, currentTemporary(), binaryLength - fixupChainStart);
+      tfree(1);
+
+      fixupChainStart = binaryLength - 2 * WORDSIZE;
+    }
+
+    getSymbol();
+
+    gr_bitExpression();
+
+    if(valueAvailable){
+      constant = value;
+      constantFound = 1;
+      valueAvailable = 0;
+    }
+  }
+
+  if(singleOperand){
+    if(constantFound){
+      value = constant;
+      valueAvailable = 1;
+    }
+    return ltype;
+  }else{
+    if(constantFound){
+      if(constant != 0){
+        valueAvailable = 1;
+        value = 1;
+        return INT_T_STRUCT;
+      }
+      talloc();
+    }else{
+      if(fixupChainStart == 0) fixupChainStart = binaryLength;
+      emitIFormat(OP_BNE, REG_ZR, currentTemporary(), binaryLength - fixupChainStart);
+      fixupChainStart = binaryLength - 2 * WORDSIZE;
+    }
+    emitRFormat(OP_SPECIAL, REG_ZR, REG_ZR, currentTemporary(), FCT_ADDU);
+    emitIFormat(OP_BEQ, REG_ZR, REG_ZR, 2);
+    if(fixupChainStart != 0) fixup_chain(fixupChainStart);
+    emitIFormat(OP_ADDIU, REG_ZR, currentTemporary(), 1);
+    return INT_T_STRUCT;
+  }
 }
 
 struct typechecking_t* gr_logExpression(){
