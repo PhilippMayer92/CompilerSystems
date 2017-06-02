@@ -10,7 +10,7 @@ C\* is a small Turing-complete subset of C that includes dereferencing (the `*` 
 
 C\* Keywords: `int`, `while`, `if`, `else`, `return`, `void`, `struct`
 
-C\* Symbols: `=`, `+`, `-`, `*`, `/`, `%`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `,`, `(`, `)`, `{`, `}`, `;`, '<<', '>>', `&`, `|`, `[`, `]`, `->`, integer, identifier, character, string
+C\* Symbols: `=`, `+`, `-`, `*`, `/`, `%`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `,`, `(`, `)`, `{`, `}`, `;`, '<<', '>>', `&`, `|`, `[`, `]`, `->`, `!`, `&&`, `||`, integer, identifier, character, string
 
 with:
 
@@ -62,7 +62,11 @@ statement           = call ";" | while | if | return ";" |
 
 call                = identifier "(" [ expression { "," expression } ] ")" .
 
-expression(v)       = compExpression(v) [ ( "&" | "|" ) compExpression ] .
+expression(v)       = logExpression(v) [ "||" logExpression ] .
+
+logExpression(v)    = bitExpression(v) [ "&&" bitExpression ] .
+
+bitExpression(v)    = compExpression(v) [ ( "&" | "|" ) compExpression ] .
 
 compExpression(v)   = shiftExpression(v) [ ( "==" | "!=" | "<" | ">" | "<=" | ">=" ) shiftExpression ] .
 
@@ -73,7 +77,7 @@ simpleExpression(v) = [ "-" ] term(v) { ( "+" | "-" ) term(v) } .
 term(v)             = factor(v) { ( "*" | "/" | "%" ) factor(v) } .
 
 factor(v)           = [ cast ]
-                      ( [ "*" | "~"] ( identifier [ { selector } | structAccess ] | "(" expression(v) ")" ) |
+                      ( [ "*" | "~" | "!" ] ( identifier [ { selector } | structAccess ] | "(" expression(v) ")" ) |
                       call |
                       literal(v) |
                       string ) .
