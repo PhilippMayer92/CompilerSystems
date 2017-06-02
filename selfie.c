@@ -6490,10 +6490,10 @@ void selfie_compile() {
   emitMap();
 
   while (link) {
-    if (numberOfRemainingArguments() == 0)
+    //hw11 start
+    if (!numberOfRemainingArguments() || loadCharacter(peekArgument(), 0) == '-')
       link = 0;
-    else if (loadCharacter(peekArgument(), 0) == '-')
-      link = 0;
+    //hw11 end
     else {
       sourceName = getArgument();
 
@@ -6579,11 +6579,13 @@ void selfie_compile() {
     }
   }
 
-  if (numberOfSourceFiles == 0) {
+  //hw11 start
+  if (!numberOfSourceFiles) {
     print(selfieName);
     print((int*) ": nothing to compile, only library generated");
     println();
   }
+  //hw11 end
 
   codeLength = binaryLength;
 
