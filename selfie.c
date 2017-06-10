@@ -4760,6 +4760,7 @@ struct typechecking_t* gr_expression(){
       if(constant != 0){
         value = 1;
         valueAvailable = 1;
+        if(fixupChainStart != 0) fixup_chain(fixupChainStart);
         return INT_T_STRUCT;
       }
       constantFound = 0;
@@ -4794,6 +4795,7 @@ struct typechecking_t* gr_expression(){
       if(constant != 0){
         valueAvailable = 1;
         value = 1;
+        if(fixupChainStart != 0) fixup_chain(fixupChainStart);
         return INT_T_STRUCT;
       }
       talloc();
@@ -4837,6 +4839,7 @@ struct typechecking_t* gr_logExpression(){
       if(constant == 0){
         value = constant;
         valueAvailable = 1;
+        if(fixupChainStart != 0) fixup_chain(fixupChainStart);
         return INT_T_STRUCT;
       }
       constantFound = 0;
@@ -4871,6 +4874,7 @@ struct typechecking_t* gr_logExpression(){
       if(constant == 0){
         valueAvailable = 1;
         value = 0;
+        if(fixupChainStart != 0) fixup_chain(fixupChainStart);
         return INT_T_STRUCT;
       }
       talloc();
