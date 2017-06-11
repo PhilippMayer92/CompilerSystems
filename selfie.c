@@ -3091,6 +3091,9 @@ int lookForType() {
 }
 
 void talloc() {
+  //hw11
+  if(suppressCodegen) return;
+
   // we use registers REG_T0-REG_T7 for temporaries
   if (allocatedTemporaries < REG_T7 - REG_A3)
     allocatedTemporaries = allocatedTemporaries + 1;
@@ -3102,6 +3105,9 @@ void talloc() {
 }
 
 int currentTemporary() {
+  //hw11
+  if(suppressCodegen) return 0;
+
   if (allocatedTemporaries > 0)
     return allocatedTemporaries + REG_A3;
   else {
@@ -3112,6 +3118,9 @@ int currentTemporary() {
 }
 
 int previousTemporary() {
+  //hw11
+  if(suppressCodegen) return 0;
+
   if (allocatedTemporaries > 1)
     return currentTemporary() - 1;
   else {
@@ -3123,6 +3132,9 @@ int previousTemporary() {
 
 //hw6 start
 int previousPreviousTemporary() {
+  //hw11
+  if(suppressCodegen) return 0;
+
   if (allocatedTemporaries > 2)
     return currentTemporary() - 2;
   else {
@@ -3134,6 +3146,9 @@ int previousPreviousTemporary() {
 //hw6 end
 
 int nextTemporary() {
+  //hw11
+  if(suppressCodegen) return 0;
+
   if (allocatedTemporaries < REG_T7 - REG_A3)
     return currentTemporary() + 1;
   else {
@@ -3144,6 +3159,9 @@ int nextTemporary() {
 }
 
 void tfree(int numberOfTemporaries) {
+  //hw11
+  if(suppressCodegen) return;
+
   allocatedTemporaries = allocatedTemporaries - numberOfTemporaries;
 
   if (allocatedTemporaries < 0) {
@@ -4767,7 +4785,6 @@ struct typechecking_t* gr_expression(){
   int constantFound;
   int fixupChainStart;
   int suppressionStart;
-  int usedRegs;
 
   singleOperand = 1;
   constantFound = 0;
@@ -4788,10 +4805,7 @@ struct typechecking_t* gr_expression(){
 
     if(constantFound){
       if(constant != 0){
-        if(!suppressCodegen){
-          suppressionStart = 1;
-          usedRegs = allocatedTemporaries;
-        }
+        if(!suppressCodegen) suppressionStart = 1;
         suppressCodegen = 1;
       }else{
         constantFound = 0;
@@ -4830,10 +4844,7 @@ struct typechecking_t* gr_expression(){
         valueAvailable = 1;
         value = 1;
         if(fixupChainStart != 0) fixup_chain(fixupChainStart);
-        if(suppressionStart){
-          while(allocatedTemporaries > usedRegs) tfree(1);
-          suppressCodegen = 0;  
-        }
+        if(suppressionStart) suppressCodegen = 0;  
         return INT_T_STRUCT;
       }
       talloc();
@@ -4858,7 +4869,6 @@ struct typechecking_t* gr_logExpression(){
   int constantFound;
   int fixupChainStart;
   int suppressionStart;
-  int usedRegs;
 
   singleOperand = 1;
   constantFound = 0;
@@ -4879,13 +4889,10 @@ struct typechecking_t* gr_logExpression(){
 
     if(constantFound){
       if(constant == 0){
-        if(!suppressCodegen){
-          suppressionStart = 1;
-          usedRegs = allocatedTemporaries;
-        }
+        if(!suppressCodegen) suppressionStart = 1;
         suppressCodegen = 1;
       }else{
-        //constantFound = 0;
+        constantFound = 0;
       }
     }else{
       if(fixupChainStart == 0 && !suppressCodegen) fixupChainStart = binaryLength;
@@ -4922,10 +4929,7 @@ struct typechecking_t* gr_logExpression(){
         valueAvailable = 1;
         value = 0;
         if(fixupChainStart != 0) fixup_chain(fixupChainStart);
-        if(suppressionStart){
-          while(allocatedTemporaries > usedRegs) tfree(1);
-          suppressCodegen = 0;  
-        } 
+        if(suppressionStart) suppressCodegen = 0;  
         return INT_T_STRUCT;
       }
       talloc();
