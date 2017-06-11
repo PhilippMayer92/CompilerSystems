@@ -4783,8 +4783,8 @@ struct typechecking_t* gr_expression(){
   int singleOperand;
   int constant;
   int constantFound;
-  int fixupChainStart;
-  int suppressionStart;
+  int fixupChainStart; //last member in the fixup chain
+  int suppressionStart; //indicates whether the codegen suppression was started here or not....the suppression must be stopped in the same nonterminal
 
   singleOperand = 1;
   constantFound = 0;
@@ -4800,19 +4800,25 @@ struct typechecking_t* gr_expression(){
   }
 
   while(symbol == SYM_OR_LOG){
-
+    //indicates that an ||-expression is present
     singleOperand = 0;
 
     if(constantFound){
+      //when a constant unequal 0 is found, continue parsing the rest of the expression without codegeneration
+      //constant 0 will be ignored
       if(constant != 0){
+        //mark start of codegen suppression
         if(!suppressCodegen) suppressionStart = 1;
         suppressCodegen = 1;
       }else{
         constantFound = 0;
       }
     }else{
+      //no constant unequal 0 found, so codegen
+      //new start for fixup chain....only for codegen
       if(fixupChainStart == 0 && !suppressCodegen) fixupChainStart = binaryLength;
 
+      //fixup chain with offset in bytes
       emitIFormat(OP_BNE, REG_ZR, currentTemporary(), binaryLength - fixupChainStart);
       tfree(1);
 
@@ -4824,6 +4830,7 @@ struct typechecking_t* gr_expression(){
     gr_logExpression();
 
     if(valueAvailable){
+      //do not override constant unequal 0
       if(!(constantFound && constant != 0)){
         constant = value;
         constantFound = 1;
@@ -4833,6 +4840,7 @@ struct typechecking_t* gr_expression(){
   }
 
   if(singleOperand){
+    //no ||-expression
     if(constantFound){
       value = constant;
       valueAvailable = 1;
@@ -4840,23 +4848,30 @@ struct typechecking_t* gr_expression(){
     return ltype;
   }else{
     if(constantFound){
+      //if constant unequal 0 found, pass it to caller
       if(constant != 0){
         valueAvailable = 1;
         value = 1;
+        //fixup to next instruction after ||-expression
         if(fixupChainStart != 0) fixup_chain(fixupChainStart);
+        //possible end of codegen suppression
         if(suppressionStart) suppressCodegen = 0;  
         return INT_T_STRUCT;
       }
       talloc();
     }else{
+      //emit last non-constant operands code
       if(fixupChainStart == 0 && !suppressCodegen) fixupChainStart = binaryLength;
       emitIFormat(OP_BNE, REG_ZR, currentTemporary(), binaryLength - fixupChainStart);
       if(!suppressCodegen) fixupChainStart = binaryLength - 2 * WORDSIZE;
     }
+    //emit endcode of ||-expression
     emitRFormat(OP_SPECIAL, REG_ZR, REG_ZR, currentTemporary(), FCT_ADDU);
     emitIFormat(OP_BEQ, REG_ZR, REG_ZR, 2);
+    //fixup to logical true
     if(fixupChainStart != 0) fixup_chain(fixupChainStart);
     emitIFormat(OP_ADDIU, REG_ZR, currentTemporary(), 1);
+    //possible end of codegen suppression
     if(suppressionStart) suppressCodegen = 0;
     return INT_T_STRUCT;
   }
@@ -4867,8 +4882,8 @@ struct typechecking_t* gr_logExpression(){
   int singleOperand;
   int constant;
   int constantFound;
-  int fixupChainStart;
-  int suppressionStart;
+  int fixupChainStart; //last member in the fixup chain
+  int suppressionStart; //indicates whether the codegen suppression was started here or not....the suppression must be stopped in the same nonterminal
 
   singleOperand = 1;
   constantFound = 0;
@@ -4884,19 +4899,25 @@ struct typechecking_t* gr_logExpression(){
   }
 
   while(symbol == SYM_AND_LOG){
-
+    //indicates that an &&-expression is present
     singleOperand = 0;
 
     if(constantFound){
+      //when a constant 0 is found, continue parsing the rest of the expression without codegeneration
+      //constants unequal 0 will be ignored
       if(constant == 0){
+        //mark start of codegen suppression
         if(!suppressCodegen) suppressionStart = 1;
         suppressCodegen = 1;
       }else{
         constantFound = 0;
       }
     }else{
+      //no constant 0 found, so codegen
+      //new start for fixup chain....only for codegen
       if(fixupChainStart == 0 && !suppressCodegen) fixupChainStart = binaryLength;
 
+      //fixup chain with offset in bytes
       emitIFormat(OP_BEQ, REG_ZR, currentTemporary(), binaryLength - fixupChainStart);
       tfree(1);
 
@@ -4909,6 +4930,7 @@ struct typechecking_t* gr_logExpression(){
     gr_bitExpression();
 
     if(valueAvailable){
+      //do not override constant 0
       if(!(constantFound && constant == 0)){
         constant = value;
         constantFound = 1;
@@ -4918,6 +4940,7 @@ struct typechecking_t* gr_logExpression(){
   }
 
   if(singleOperand){
+    //no &&-expression
     if(constantFound){
       value = constant;
       valueAvailable = 1;
@@ -4925,23 +4948,30 @@ struct typechecking_t* gr_logExpression(){
     return ltype;
   }else{
     if(constantFound){
+      //if constant 0 found, pass it to caller
       if(constant == 0){
         valueAvailable = 1;
         value = 0;
+        //fixup to next instruction after &&-expression
         if(fixupChainStart != 0) fixup_chain(fixupChainStart);
+        //possible end of codegen suppression
         if(suppressionStart) suppressCodegen = 0;  
         return INT_T_STRUCT;
       }
       talloc();
     }else{
+      //emit last non-constant operands code
       if(fixupChainStart == 0 && !suppressCodegen) fixupChainStart = binaryLength;
       emitIFormat(OP_BEQ, REG_ZR, currentTemporary(), binaryLength - fixupChainStart);
       if(!suppressCodegen) fixupChainStart = binaryLength - 2 * WORDSIZE;
     }
+    //emit endcode of &&-expression
     emitIFormat(OP_ADDIU, REG_ZR, currentTemporary(), 1);
     emitIFormat(OP_BEQ, REG_ZR, REG_ZR, 2);
+    //fixup to logical true
     if(fixupChainStart != 0) fixup_chain(fixupChainStart);
     emitRFormat(OP_SPECIAL, REG_ZR, REG_ZR, currentTemporary(), FCT_ADDU);
+    //possible end of codegen suppression
     if(suppressionStart) suppressCodegen = 0;
     return INT_T_STRUCT;
   }
