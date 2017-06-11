@@ -57,27 +57,27 @@ procedure           = "(" [ variable [ selector ] { "," variable [ selector ] } 
 variable            = type identifier .
 
 statement           = call ";" | while | if | return ";" |
-                       ( [ "*" ] identifier [ { selector } | structAccess ] | "*" "(" expression ")" )
-                       "=" expression ";" .
+                       ( [ "*" ] identifier [ { selector } | structAccess ] | "*" "(" expression(v) ")" )
+                       "=" expression(v) ";" .
 
-call                = identifier "(" [ expression { "," expression } ] ")" .
+call                = identifier "(" [ expression(v) { "," expression(v) } ] ")" .
 
-expression(v)       = logExpression(v) [ "||" logExpression ] .
+expression(v)       = logExpression(v) [ "||" logExpression(v) ] .
 
-logExpression(v)    = bitExpression(v) [ "&&" bitExpression ] .
+logExpression(v)    = bitExpression(v) [ "&&" bitExpression(v) ] .
 
-bitExpression(v)    = compExpression(v) [ ( "&" | "|" ) compExpression ] .
+bitExpression(v)    = compExpression(v) [ ( "&" | "|" ) compExpression(v) ] .
 
-compExpression(v)   = shiftExpression(v) [ ( "==" | "!=" | "<" | ">" | "<=" | ">=" ) shiftExpression ] .
+compExpression(v)   = shiftExpression(v) [ ( "==" | "!=" | "<" | ">" | "<=" | ">=" ) shiftExpression(v) ] .
 
-shiftExpression(v)  = simpleExpression(v) { ( "<<" | ">>") simpleExpression } .
+shiftExpression(v)  = simpleExpression(v) { ( "<<" | ">>") simpleExpression(v) } .
 
 simpleExpression(v) = [ "-" ] term(v) { ( "+" | "-" ) term(v) } .
 
 term(v)             = factor(v) { ( "*" | "/" | "%" ) factor(v) } .
 
 factor(v)           = [ cast ]
-                      ( [ "*" | "~" | "!" ] ( identifier [ { selector } | structAccess ] | "(" expression(v) ")" ) |
+                      ( [ "*" | "~" | "!" ] ( identifier(v) [ { selector } | structAccess ] | "(" expression(v) ")" ) |
                       call |
                       literal(v) |
                       string ) .

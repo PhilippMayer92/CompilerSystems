@@ -835,6 +835,8 @@ int value               = 0;
 int valueAvailable      = 0;
 //hw7
 int arrayDeklaration    = 0;
+//hw11
+int suppressCodegen     = 0;
 
 // ------------------------- INITIALIZATION ------------------------
 
@@ -2955,6 +2957,12 @@ int isExpression() {
     return 1;
   else if (symbol == SYM_CHARACTER)
     return 1;
+  //hw11 start
+  else if (symbol == SYM_NOT_LOG)
+    return 1;
+  else if (symbol == SYM_NOT_BITW)
+    return 1;
+  //hw11 end
   else
     return 0;
 }
@@ -3146,6 +3154,9 @@ void tfree(int numberOfTemporaries) {
 }
 
 void save_temporaries() {
+  //hw11
+  if(suppressCodegen) return;
+
   while (allocatedTemporaries > 0) {
     // push temporary onto stack
     emitIFormat(OP_ADDIU, REG_SP, REG_SP, -WORDSIZE);
@@ -3156,6 +3167,9 @@ void save_temporaries() {
 }
 
 void restore_temporaries(int numberOfTemporaries) {
+  //hw11
+  if(suppressCodegen) return;
+
   while (allocatedTemporaries < numberOfTemporaries) {
     talloc();
 
@@ -3455,6 +3469,8 @@ struct typechecking_t* help_call_codegen(struct symbol_table_t* entry, int* proc
 
   if (entry == (struct symbol_table_t*) 0) {
     // procedure never called nor declared nor defined
+    //hw11
+    if(suppressCodegen) return INT_T_STRUCT;
 
     // default return type is "int"
     type = INT_T_STRUCT;
@@ -3465,6 +3481,9 @@ struct typechecking_t* help_call_codegen(struct symbol_table_t* entry, int* proc
 
   } else {
     type = setTypecheckingType(entry);
+
+    //hw11 
+    if(suppressCodegen) return type;
 
     if (getAddress(entry) == 0) {
       // procedure declared but never called nor defined
@@ -3930,9 +3949,8 @@ struct typechecking_t* gr_factor() {
 
       //hw6 hw11 start
       if(valueAvailable){
-        constant = value;
-        valueFound = 1;
-        valueAvailable=0;
+        valueAvailable = 0;
+        load_integer(value);
       }
       //hw6 end
 
@@ -4153,9 +4171,6 @@ struct typechecking_t* gr_factor() {
     constant = literal;
     valueFound = 1;
     //hw11 end
-    //talloc();
-
-    //emitIFormat(OP_ADDIU, REG_ZR, currentTemporary(), literal);
 
     getSymbol();
 
@@ -4176,6 +4191,14 @@ struct typechecking_t* gr_factor() {
 
     type = gr_expression();
 
+    //hw11 start
+    if(valueAvailable){
+      constant = value;
+      valueFound = 1;
+      valueAvailable = 0;
+    }
+    //hw11 end
+
     if (symbol == SYM_RPARENTHESIS)
       getSymbol();
     else
@@ -4186,7 +4209,11 @@ struct typechecking_t* gr_factor() {
   //hw11 start
   if(hasNotLog){
     if(valueFound){
+      printInteger(constant);
+      println();
       value = ! constant;
+      printInteger(value);
+      println();
       valueAvailable = 1;
     }else{
       emitIFormat(OP_BNE, REG_ZR, currentTemporary(), 4);
@@ -4739,10 +4766,13 @@ struct typechecking_t* gr_expression(){
   int constant;
   int constantFound;
   int fixupChainStart;
+  int suppressionStart;
+  int usedRegs;
 
   singleOperand = 1;
   constantFound = 0;
   fixupChainStart = 0;
+  suppressionStart = 0;
 
   ltype = gr_logExpression();
 
@@ -4758,19 +4788,21 @@ struct typechecking_t* gr_expression(){
 
     if(constantFound){
       if(constant != 0){
-        value = 1;
-        valueAvailable = 1;
-        if(fixupChainStart != 0) fixup_chain(fixupChainStart);
-        return INT_T_STRUCT;
+        if(!suppressCodegen){
+          suppressionStart = 1;
+          usedRegs = allocatedTemporaries;
+        }
+        suppressCodegen = 1;
+      }else{
+        constantFound = 0;
       }
-      constantFound = 0;
     }else{
-      if(fixupChainStart == 0) fixupChainStart = binaryLength;
+      if(fixupChainStart == 0 && !suppressCodegen) fixupChainStart = binaryLength;
 
       emitIFormat(OP_BNE, REG_ZR, currentTemporary(), binaryLength - fixupChainStart);
       tfree(1);
 
-      fixupChainStart = binaryLength - 2 * WORDSIZE;
+      if(!suppressCodegen) fixupChainStart = binaryLength - 2 * WORDSIZE;
     }
 
     getSymbol();
@@ -4778,8 +4810,10 @@ struct typechecking_t* gr_expression(){
     gr_logExpression();
 
     if(valueAvailable){
-      constant = value;
-      constantFound = 1;
+      if(!(constantFound && constant != 0)){
+        constant = value;
+        constantFound = 1;
+      }
       valueAvailable = 0;
     }
   }
@@ -4796,18 +4830,23 @@ struct typechecking_t* gr_expression(){
         valueAvailable = 1;
         value = 1;
         if(fixupChainStart != 0) fixup_chain(fixupChainStart);
+        if(suppressionStart){
+          while(allocatedTemporaries > usedRegs) tfree(1);
+          suppressCodegen = 0;  
+        }
         return INT_T_STRUCT;
       }
       talloc();
     }else{
-      if(fixupChainStart == 0) fixupChainStart = binaryLength;
+      if(fixupChainStart == 0 && !suppressCodegen) fixupChainStart = binaryLength;
       emitIFormat(OP_BNE, REG_ZR, currentTemporary(), binaryLength - fixupChainStart);
-      fixupChainStart = binaryLength - 2 * WORDSIZE;
+      if(!suppressCodegen) fixupChainStart = binaryLength - 2 * WORDSIZE;
     }
     emitRFormat(OP_SPECIAL, REG_ZR, REG_ZR, currentTemporary(), FCT_ADDU);
     emitIFormat(OP_BEQ, REG_ZR, REG_ZR, 2);
     if(fixupChainStart != 0) fixup_chain(fixupChainStart);
     emitIFormat(OP_ADDIU, REG_ZR, currentTemporary(), 1);
+    if(suppressionStart) suppressCodegen = 0;
     return INT_T_STRUCT;
   }
 }
@@ -4818,10 +4857,13 @@ struct typechecking_t* gr_logExpression(){
   int constant;
   int constantFound;
   int fixupChainStart;
+  int suppressionStart;
+  int usedRegs;
 
   singleOperand = 1;
   constantFound = 0;
   fixupChainStart = 0;
+  suppressionStart = 0;
 
   ltype = gr_bitExpression();
 
@@ -4837,28 +4879,33 @@ struct typechecking_t* gr_logExpression(){
 
     if(constantFound){
       if(constant == 0){
-        value = constant;
-        valueAvailable = 1;
-        if(fixupChainStart != 0) fixup_chain(fixupChainStart);
-        return INT_T_STRUCT;
+        if(!suppressCodegen){
+          suppressionStart = 1;
+          usedRegs = allocatedTemporaries;
+        }
+        suppressCodegen = 1;
+      }else{
+        //constantFound = 0;
       }
-      constantFound = 0;
     }else{
-      if(fixupChainStart == 0) fixupChainStart = binaryLength;
+      if(fixupChainStart == 0 && !suppressCodegen) fixupChainStart = binaryLength;
 
       emitIFormat(OP_BEQ, REG_ZR, currentTemporary(), binaryLength - fixupChainStart);
       tfree(1);
 
-      fixupChainStart = binaryLength - 2 * WORDSIZE;
+      if(!suppressCodegen) fixupChainStart = binaryLength - 2 * WORDSIZE;
     }
+
 
     getSymbol();
 
     gr_bitExpression();
 
     if(valueAvailable){
-      constant = value;
-      constantFound = 1;
+      if(!(constantFound && constant == 0)){
+        constant = value;
+        constantFound = 1;
+      }
       valueAvailable = 0;
     }
   }
@@ -4875,18 +4922,23 @@ struct typechecking_t* gr_logExpression(){
         valueAvailable = 1;
         value = 0;
         if(fixupChainStart != 0) fixup_chain(fixupChainStart);
+        if(suppressionStart){
+          while(allocatedTemporaries > usedRegs) tfree(1);
+          suppressCodegen = 0;  
+        } 
         return INT_T_STRUCT;
       }
       talloc();
     }else{
-      if(fixupChainStart == 0) fixupChainStart = binaryLength;
+      if(fixupChainStart == 0 && !suppressCodegen) fixupChainStart = binaryLength;
       emitIFormat(OP_BEQ, REG_ZR, currentTemporary(), binaryLength - fixupChainStart);
-      fixupChainStart = binaryLength - 2 * WORDSIZE;
+      if(!suppressCodegen) fixupChainStart = binaryLength - 2 * WORDSIZE;
     }
     emitIFormat(OP_ADDIU, REG_ZR, currentTemporary(), 1);
     emitIFormat(OP_BEQ, REG_ZR, REG_ZR, 2);
     if(fixupChainStart != 0) fixup_chain(fixupChainStart);
     emitRFormat(OP_SPECIAL, REG_ZR, REG_ZR, currentTemporary(), FCT_ADDU);
+    if(suppressionStart) suppressCodegen = 0;
     return INT_T_STRUCT;
   }
 }
@@ -5563,6 +5615,7 @@ void gr_statement() {
         load_integer(value);
         valueAvailable=0;
       }
+
       //hw6 end
       typeControll(ltype, rtype);
 
@@ -6839,17 +6892,20 @@ void storeBinary(int baddr, int instruction) {
 }
 
 void emitInstruction(int instruction) {
-  if (binaryLength >= maxBinaryLength) {
-    syntaxErrorMessage((int*) "exceeded maximum binary length");
+  //hw11
+  if(!suppressCodegen){
+    if (binaryLength >= maxBinaryLength) {
+      syntaxErrorMessage((int*) "exceeded maximum binary length");
 
-    exit(-1);
-  } else {
-    if (*(sourceLineNumber + binaryLength / WORDSIZE) == 0)
-      *(sourceLineNumber + binaryLength / WORDSIZE) = lineNumber;
+      exit(-1);
+    } else {
+      if (*(sourceLineNumber + binaryLength / WORDSIZE) == 0)
+        *(sourceLineNumber + binaryLength / WORDSIZE) = lineNumber;
 
-    storeBinary(binaryLength, instruction);
+      storeBinary(binaryLength, instruction);
 
-    binaryLength = binaryLength + WORDSIZE;
+      binaryLength = binaryLength + WORDSIZE;
+    }
   }
 }
 
